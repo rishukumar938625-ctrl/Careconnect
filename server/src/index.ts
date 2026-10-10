@@ -8,12 +8,16 @@ import { errorHandler } from './middleware/errorHandler.js';
 import { notFoundHandler } from './middleware/notFoundHandler.js';
 import { sanitizeError } from './utils/sanitize.js';
 
+import cookieParser from 'cookie-parser';
 import healthRoutes from './routes/healthRoutes.js';
+import authRoutes from './routes/authRoutes.js';
 import conditionRoutes from './routes/conditionRoutes.js';
 import medicineRoutes from './routes/medicineRoutes.js';
 import articleRoutes from './routes/articleRoutes.js';
 import medicationRoutes from './routes/medicationRoutes.js';
+import doseRoutes from './routes/doseRoutes.js';
 import appointmentRoutes from './routes/appointmentRoutes.js';
+import doctorRoutes from './routes/doctorRoutes.js';
 import userRoutes from './routes/userRoutes.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -52,9 +56,12 @@ app.use(
     },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-CSRF-Token', 'x-csrf-token'],
   })
 );
+
+// Cookie parsing middleware
+app.use(cookieParser());
 
 // Safe JSON and URL-encoded request body parsing with sensible size limits (1mb)
 app.use(express.json({ limit: '1mb' }));
@@ -65,6 +72,9 @@ app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 // Health endpoints (/api/health and /api/health/db) and health data routes
 app.use('/api/health', healthRoutes);
 
+// Phase 3 Authentication Endpoints
+app.use('/api/auth', authRoutes);
+
 // Phase 2 Health Information Module Endpoints
 app.use('/api/conditions', conditionRoutes);
 app.use('/api/medicines', medicineRoutes);
@@ -72,7 +82,9 @@ app.use('/api/articles', articleRoutes);
 
 // Feature routes
 app.use('/api/medications', medicationRoutes);
+app.use('/api/doses', doseRoutes);
 app.use('/api/appointments', appointmentRoutes);
+app.use('/api/doctors', doctorRoutes);
 app.use('/api/user', userRoutes);
 
 // ─── Error Handling & 404 Fallbacks ─────────────────────────────────────────

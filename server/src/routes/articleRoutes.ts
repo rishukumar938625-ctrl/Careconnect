@@ -4,11 +4,13 @@ import {
   getArticleBySlug,
   toggleArticleBookmark,
 } from '../controllers/articleController.js';
+import { optionalAuth, authenticate } from '../middleware/authMiddleware.js';
+import { validateCsrf } from '../middleware/csrfMiddleware.js';
 
 const router = Router();
 
-router.get('/', getArticles);
-router.get('/:slug', getArticleBySlug);
-router.post('/:slug/bookmark', toggleArticleBookmark);
+router.get('/', optionalAuth, getArticles);
+router.get('/:slug', optionalAuth, getArticleBySlug);
+router.post('/:slug/bookmark', authenticate, validateCsrf, toggleArticleBookmark);
 
 export default router;

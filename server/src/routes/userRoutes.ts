@@ -1,73 +1,112 @@
-import { Router, Request, Response } from 'express';
-import { User } from '../models/User.js';
+import { Router, Response } from 'express';
+import { toSafeUser } from '../models/User.js';
+import { authenticate, AuthRequest } from '../middleware/authMiddleware.js';
+import { validateCsrf } from '../middleware/csrfMiddleware.js';
 
 const router = Router();
 
-// GET default / logged-in user profile
-router.get('/profile', async (_req: Request, res: Response) => {
+// GET authenticated user profile
+router.get('/profile', authenticate, async (req: AuthRequest, res: Response) => {
   try {
-    let user = await User.findOne();
-    if (!user) {
-      // Seed default profile if not exists
-      user = new User({
-        name: 'Rishu Kumar',
-        email: 'rishu@careconnect.app',
-        phone: '+91 98765 43210',
-        dateOfBirth: '1998-05-14',
-        bloodGroup: 'O+',
-        allergies: ['Penicillin', 'Peanuts'],
-        chronicConditions: ['Mild Asthma'],
-        emergencyContact: {
-          name: 'Rajesh Kumar',
-          relationship: 'Brother',
-          phone: '+91 98765 43211',
-        },
-        notificationPreferences: {
-          medicationReminders: true,
-          appointmentAlerts: true,
-          healthTips: false,
-          emailUpdates: true,
-        },
-      });
-      await user.save();
+    if (!req.user) {
+      res.status(401).json({ status: 'error', message: 'Not authenticated' });
+      return;
     }
-    res.json(user);
+    res.status(200).json(toSafeUser(req.user));
   } catch (error) {
-    res.status(500).json({ error: 'Failed to fetch user profile' });
+    res.status(500).json({ status: 'error', message: 'Failed to fetch user profile' });
   }
 });
 
-// PUT update profile
-router.put('/profile', async (req: Request, res: Response) => {
+// PUT update profile (only permitted fields)
+router.put('/profile', authenticate, validateCsrf, async (req: AuthRequest, res: Response) => {
   try {
-    let user = await User.findOne();
+    const user = req.user;
     if (!user) {
-      user = new User(req.body);
-    } else {
-      Object.assign(user, req.body);
+      res.status(401).json({ status: 'error', message: 'Not authenticated' });
+      return;
     }
+
+    const {
+      name,
+      phone,
+      dateOfBirth,
+      bloodGroup,
+      allergies,
+      chronicConditions,
+      emergencyContact,
+      notificationPreferences,
+    } = req.body;
+
+    if (name && typeof name === 'string') {
+      if (name.trim().length >= 2 && name.trim().length <= 100) {
+        user.name = name.trim();
+      } else {
+        res.status(400).json({ status: 'error', message: 'Name must be between 2 and 100 characters' });
+        return;
+      }
+    }
+
+    if (phone !== undefined && typeof phone === 'string') {
+      user.phone = phone.trim();
+    }
+
+    if (dateOfBirth !== undefined && typeof dateOfBirth === 'string') {
+      user.dateOfBirth = dateOfBirth;
+    }
+
+    if (bloodGroup !== undefined && typeof bloodGroup === 'string') {
+      user.bloodGroup = bloodGroup.trim();
+    }
+
+    if (Array.isArray(allergies)) {
+      user.allergies = allergies.filter((a) => typeof a === 'string');
+    }
+
+    if (Array.isArray(chronicConditions)) {
+      user.chronicConditions = chronicConditions.filter((c) => typeof c === 'string');
+    }
+
+    if (emergencyContact && typeof emergencyContact === 'object') {
+      user.emergencyContact = {
+        name: typeof emergencyContact.name === 'string' ? emergencyContact.name : user.emergencyContact?.name || '',
+        relationship: typeof emergencyContact.relationship === 'string' ? emergencyContact.relationship : user.emergencyContact?.relationship || '',
+        phone: typeof emergencyContact.phone === 'string' ? emergencyContact.phone : user.emergencyContact?.phone || '',
+      };
+    }
+
+    if (notificationPreferences && typeof notificationPreferences === 'object') {
+      user.notificationPreferences = {
+        ...user.notificationPreferences,
+        ...notificationPreferences,
+      };
+    }
+
     await user.save();
-    res.json(user);
+    res.status(200).json(toSafeUser(user));
   } catch (error) {
-    res.status(500).json({ error: 'Failed to update user profile' });
+    res.status(500).json({ status: 'error', message: 'Failed to update user profile' });
   }
 });
 
 // PATCH toggle notifications
-router.patch('/notifications', async (req: Request, res: Response) => {
+router.patch('/notifications', authenticate, validateCsrf, async (req: AuthRequest, res: Response) => {
   try {
-    const user = await User.findOne();
+    const user = req.user;
     if (!user) {
-      return res.status(404).json({ error: 'User not found' });
+      res.status(401).json({ status: 'error', message: 'Not authenticated' });
+      return;
     }
+
     user.notificationPreferences = {
       ...user.notificationPreferences,
       ...req.body,
     };
+
     await user.save();
-    res.json(user.notificationPreferences);
+    res.status(200).json(user.notificationPreferences);
   } catch (error) {
-    res.status(500).json({ error: 'Failed to update notification preferences' });
+    res.status(500).json({ status: 'error', message: 'Failed to update notification preferences' });
   }
 });
 

@@ -1,13 +1,15 @@
-import { Request, Response, NextFunction } from 'express';
+import { Response, NextFunction } from 'express';
 import { Article } from '../models/Article.js';
 import { escapeRegex, parsePagination, buildPaginationMeta } from '../utils/queryHelper.js';
+import { AuthRequest } from '../middleware/authMiddleware.js';
 
 /**
  * GET /api/articles
  * List health articles with pagination, search query, and category filters.
+ * When authenticated, personal bookmarks are reflected.
  */
 export const getArticles = async (
-  req: Request,
+  req: AuthRequest,
   res: Response,
   next: NextFunction
 ): Promise<void> => {
@@ -21,7 +23,11 @@ export const getArticles = async (
     }
 
     if (bookmarked === 'true') {
-      filter.bookmarked = true;
+      if (req.user) {
+        filter.slug = { $in: req.user.bookmarkedArticles || [] };
+      } else {
+        filter.bookmarked = true;
+      }
     }
 
     if (q && typeof q === 'string' && q.trim()) {
@@ -41,8 +47,19 @@ export const getArticles = async (
       Article.countDocuments(filter),
     ]);
 
+    // Map personal bookmark status if user is authenticated
+    const mappedArticles = articles.map((article) => {
+      if (req.user) {
+        return {
+          ...article,
+          bookmarked: (req.user.bookmarkedArticles || []).includes(article.slug),
+        };
+      }
+      return article;
+    });
+
     res.status(200).json({
-      data: articles,
+      data: mappedArticles,
       pagination: buildPaginationMeta(total, page, limit),
     });
   } catch (error) {
@@ -55,7 +72,7 @@ export const getArticles = async (
  * Retrieve a single article by unique slug (or ID fallback).
  */
 export const getArticleBySlug = async (
-  req: Request,
+  req: AuthRequest,
   res: Response,
   next: NextFunction
 ): Promise<void> => {
@@ -68,7 +85,7 @@ export const getArticleBySlug = async (
 
     const article = await Article.findOne({
       $or: [{ slug: slug.toLowerCase() }, { _id: slug.match(/^[0-9a-fA-F]{24}$/) ? slug : null }],
-    });
+    }).lean();
 
     if (!article) {
       res.status(404).json({
@@ -78,7 +95,14 @@ export const getArticleBySlug = async (
       return;
     }
 
-    res.status(200).json(article);
+    const isBookmarked = req.user
+      ? (req.user.bookmarkedArticles || []).includes(article.slug)
+      : article.bookmarked;
+
+    res.status(200).json({
+      ...article,
+      bookmarked: isBookmarked,
+    });
   } catch (error) {
     next(error);
   }
@@ -86,10 +110,10 @@ export const getArticleBySlug = async (
 
 /**
  * POST /api/articles/:slug/bookmark
- * Toggle article bookmark state.
+ * Toggle article bookmark state for the authenticated user.
  */
 export const toggleArticleBookmark = async (
-  req: Request,
+  req: AuthRequest,
   res: Response,
   next: NextFunction
 ): Promise<void> => {
@@ -105,6 +129,30 @@ export const toggleArticleBookmark = async (
       return;
     }
 
+    if (req.user) {
+      const userBookmarks = req.user.bookmarkedArticles || [];
+      const index = userBookmarks.indexOf(article.slug);
+      let isBookmarked = false;
+
+      if (index > -1) {
+        userBookmarks.splice(index, 1);
+        isBookmarked = false;
+      } else {
+        userBookmarks.push(article.slug);
+        isBookmarked = true;
+      }
+
+      req.user.bookmarkedArticles = userBookmarks;
+      await req.user.save();
+
+      res.status(200).json({
+        slug: article.slug,
+        bookmarked: isBookmarked,
+      });
+      return;
+    }
+
+    // Fallback if accessed without user
     article.bookmarked = !article.bookmarked;
     await article.save();
 

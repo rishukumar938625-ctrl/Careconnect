@@ -1,13 +1,14 @@
-import { Request, Response, NextFunction } from 'express';
+import { Response, NextFunction } from 'express';
 import { Medicine } from '../models/Medicine.js';
 import { escapeRegex, parsePagination, buildPaginationMeta } from '../utils/queryHelper.js';
+import { AuthRequest } from '../middleware/authMiddleware.js';
 
 /**
  * GET /api/medicines
- * List medicines with pagination, search query, and category filters.
+ * List medicines with pagination, optional search query, and category filters.
  */
 export const getMedicines = async (
-  req: Request,
+  req: AuthRequest,
   res: Response,
   next: NextFunction
 ): Promise<void> => {
@@ -21,7 +22,11 @@ export const getMedicines = async (
     }
 
     if (bookmarked === 'true') {
-      filter.bookmarked = true;
+      if (req.user) {
+        filter.slug = { $in: req.user.bookmarkedMedicines || [] };
+      } else {
+        filter.bookmarked = true;
+      }
     }
 
     if (q && typeof q === 'string' && q.trim()) {
@@ -29,11 +34,10 @@ export const getMedicines = async (
       filter.$or = [
         { name: searchRegex },
         { genericName: searchRegex },
-        { category: searchRegex },
-        { description: searchRegex },
         { shortDescription: searchRegex },
-        { commonUses: searchRegex },
         { uses: searchRegex },
+        { category: searchRegex },
+        { tags: searchRegex },
       ];
     }
 
@@ -42,8 +46,18 @@ export const getMedicines = async (
       Medicine.countDocuments(filter),
     ]);
 
+    const mappedMedicines = medicines.map((med) => {
+      if (req.user) {
+        return {
+          ...med,
+          bookmarked: (req.user.bookmarkedMedicines || []).includes(med.slug),
+        };
+      }
+      return med;
+    });
+
     res.status(200).json({
-      data: medicines,
+      data: mappedMedicines,
       pagination: buildPaginationMeta(total, page, limit),
     });
   } catch (error) {
@@ -56,7 +70,7 @@ export const getMedicines = async (
  * Retrieve a single medicine by unique slug (or ID fallback).
  */
 export const getMedicineBySlug = async (
-  req: Request,
+  req: AuthRequest,
   res: Response,
   next: NextFunction
 ): Promise<void> => {
@@ -69,7 +83,7 @@ export const getMedicineBySlug = async (
 
     const medicine = await Medicine.findOne({
       $or: [{ slug: slug.toLowerCase() }, { _id: slug.match(/^[0-9a-fA-F]{24}$/) ? slug : null }],
-    });
+    }).lean();
 
     if (!medicine) {
       res.status(404).json({
@@ -79,7 +93,14 @@ export const getMedicineBySlug = async (
       return;
     }
 
-    res.status(200).json(medicine);
+    const isBookmarked = req.user
+      ? (req.user.bookmarkedMedicines || []).includes(medicine.slug)
+      : medicine.bookmarked;
+
+    res.status(200).json({
+      ...medicine,
+      bookmarked: isBookmarked,
+    });
   } catch (error) {
     next(error);
   }
@@ -87,10 +108,10 @@ export const getMedicineBySlug = async (
 
 /**
  * POST /api/medicines/:slug/bookmark
- * Toggle medicine bookmark state.
+ * Toggle medicine bookmark state for the authenticated user.
  */
 export const toggleMedicineBookmark = async (
-  req: Request,
+  req: AuthRequest,
   res: Response,
   next: NextFunction
 ): Promise<void> => {
@@ -102,6 +123,29 @@ export const toggleMedicineBookmark = async (
       res.status(404).json({
         status: 'error',
         message: `Medicine not found with slug '${slug}'`,
+      });
+      return;
+    }
+
+    if (req.user) {
+      const userBookmarks = req.user.bookmarkedMedicines || [];
+      const index = userBookmarks.indexOf(medicine.slug);
+      let isBookmarked = false;
+
+      if (index > -1) {
+        userBookmarks.splice(index, 1);
+        isBookmarked = false;
+      } else {
+        userBookmarks.push(medicine.slug);
+        isBookmarked = true;
+      }
+
+      req.user.bookmarkedMedicines = userBookmarks;
+      await req.user.save();
+
+      res.status(200).json({
+        slug: medicine.slug,
+        bookmarked: isBookmarked,
       });
       return;
     }

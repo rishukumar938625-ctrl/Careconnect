@@ -12,7 +12,7 @@ import {
 import { Card } from '../ui/Card';
 import { Badge } from '../ui/Badge';
 import { Button } from '../ui/Button';
-import type { Doctor, Appointment, AppointmentType, AppointmentStatus } from '../../types';
+import type { Doctor, Appointment } from '../../types';
 import { formatTime, getRelativeDate } from '../../utils';
 
 // ─── Doctor Avatar ─────────────────────────────────────────────────────────────
@@ -93,17 +93,22 @@ export const DoctorCard: React.FC<DoctorCardProps> = ({
         </div>
         <div className="flex items-center gap-1">
           <Clock className="h-3.5 w-3.5 text-text-muted" aria-hidden="true" />
-          <span>{doctor.experience}</span>
+          <span>{doctor.experience || (doctor.experienceYears ? `${doctor.experienceYears} yrs` : '5+ yrs')}</span>
         </div>
         <div className="ml-auto font-semibold text-primary-600">
-          {doctor.consultationFee}
+          {typeof doctor.consultationFee === 'number' ? `$${doctor.consultationFee}` : doctor.consultationFee}
         </div>
       </div>
 
       {/* Availability */}
       <div className="flex items-center gap-2 text-xs text-text-muted bg-slate-50 rounded-xl px-3 py-2">
         <Calendar className="h-3.5 w-3.5" aria-hidden="true" />
-        <span>Next available: {doctor.nextAvailable}</span>
+        <span>Next available: {doctor.nextAvailable || (doctor.availableToday ? 'Today' : 'Tomorrow')}</span>
+        {doctor.isDemo && (
+          <span className="ml-auto text-[10px] bg-amber-100 text-amber-800 font-medium px-2 py-0.5 rounded-full">
+            Demo Profile
+          </span>
+        )}
       </div>
 
       {/* Actions */}
@@ -112,9 +117,11 @@ export const DoctorCard: React.FC<DoctorCardProps> = ({
           variant="outline"
           size="sm"
           rightIcon={<ChevronRight className="h-4 w-4" />}
-          onClick={() =>
-            onViewProfile ? onViewProfile(doctor.id) : navigate(`/appointments/doctors`)
-          }
+          onClick={() => {
+            const docId = doctor.id || (doctor._id as string) || doctor.slug || '';
+            if (onViewProfile) onViewProfile(docId);
+            else navigate(`/appointments/doctors`);
+          }}
           className="flex-1"
           aria-label={`View profile of ${doctor.name}`}
         >
@@ -124,9 +131,11 @@ export const DoctorCard: React.FC<DoctorCardProps> = ({
           variant="primary"
           size="sm"
           leftIcon={<Calendar className="h-4 w-4" />}
-          onClick={() =>
-            onBook ? onBook(doctor.id) : navigate('/appointments/book')
-          }
+          onClick={() => {
+            const docId = doctor.id || (doctor._id as string) || doctor.slug || '';
+            if (onBook) onBook(docId);
+            else navigate(`/appointments/book?doctorId=${docId}`);
+          }}
           className="flex-1"
           aria-label={`Book appointment with ${doctor.name}`}
         >
@@ -139,20 +148,23 @@ export const DoctorCard: React.FC<DoctorCardProps> = ({
 
 // ─── Appointment Type Icon ────────────────────────────────────────────────────
 
-const appointmentTypeIcon: Record<AppointmentType, React.ReactNode> = {
+const appointmentTypeIcon: Record<string, React.ReactNode> = {
   in_person: <MapPin className="h-3.5 w-3.5" />,
+  'in-person': <MapPin className="h-3.5 w-3.5" />,
   video: <Video className="h-3.5 w-3.5" />,
 };
 
-const appointmentTypeLabel: Record<AppointmentType, string> = {
+const appointmentTypeLabel: Record<string, string> = {
   in_person: 'In-Person',
+  'in-person': 'In-Person',
   video: 'Video',
 };
 
 const appointmentStatusConfig: Record<
-  AppointmentStatus,
+  string,
   { variant: 'success' | 'warning' | 'danger' | 'neutral'; label: string }
 > = {
+  booked: { variant: 'warning', label: 'Booked' },
   upcoming: { variant: 'warning', label: 'Upcoming' },
   completed: { variant: 'success', label: 'Completed' },
   cancelled: { variant: 'danger', label: 'Cancelled' },
@@ -177,27 +189,48 @@ export const AppointmentCard: React.FC<AppointmentCardProps> = ({
   compact = false,
 }) => {
   const navigate = useNavigate();
-  const statusInfo = appointmentStatusConfig[appointment.status];
+  const appointmentId = appointment.id || (appointment._id as string);
+  const statusInfo = appointmentStatusConfig[appointment.status] || {
+    variant: 'neutral',
+    label: appointment.status,
+  };
   const relativeDate = getRelativeDate(appointment.date);
-  const formattedTime = formatTime(appointment.time);
+  const rawTime = appointment.time || appointment.timeSlot || '09:00';
+  const formattedTime = formatTime(rawTime);
+
+  const docName = appointment.doctor?.name || appointment.doctorName || 'Doctor';
+  const docSpecialty = appointment.doctor?.specialty || appointment.doctorSpecialty || 'General Practice';
+  const docInitials =
+    appointment.doctor?.avatarInitials ||
+    docName
+      .replace(/^Dr\.\s*/i, '')
+      .split(' ')
+      .map((n) => n[0])
+      .join('')
+      .slice(0, 2)
+      .toUpperCase() ||
+    'DR';
+  const docColor = appointment.doctor?.avatarColor || '#2563EB';
+
+  const isUpcoming = appointment.status === 'upcoming' || appointment.status === 'booked';
 
   return (
     <Card className="flex flex-col gap-3">
       <div className="flex items-start gap-3">
         <DoctorAvatar
-          initials={appointment.doctor.avatarInitials}
-          color={appointment.doctor.avatarColor}
+          initials={docInitials}
+          color={docColor}
           size="md"
         />
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between gap-2">
             <h3 className="text-sm font-semibold text-text-primary truncate">
-              {appointment.doctor.name}
+              {docName}
             </h3>
             <Badge variant={statusInfo.variant}>{statusInfo.label}</Badge>
           </div>
           <p className="text-xs text-text-secondary">
-            {appointment.doctor.specialty}
+            {docSpecialty}
           </p>
           <div className="flex items-center gap-3 mt-1.5 text-xs text-text-muted">
             <div className="flex items-center gap-1">
@@ -209,14 +242,14 @@ export const AppointmentCard: React.FC<AppointmentCardProps> = ({
               <span>{formattedTime}</span>
             </div>
             <div className="flex items-center gap-1">
-              {appointmentTypeIcon[appointment.type]}
-              <span>{appointmentTypeLabel[appointment.type]}</span>
+              {appointmentTypeIcon[appointment.type] || <MapPin className="h-3.5 w-3.5" />}
+              <span>{appointmentTypeLabel[appointment.type] || 'Visit'}</span>
             </div>
           </div>
         </div>
       </div>
 
-      {!compact && appointment.status === 'upcoming' && (
+      {!compact && isUpcoming && (
         <div className="flex gap-2">
           <Button
             variant="outline"
@@ -224,8 +257,8 @@ export const AppointmentCard: React.FC<AppointmentCardProps> = ({
             leftIcon={<CheckCircle2 className="h-4 w-4" />}
             onClick={() =>
               onViewDetails
-                ? onViewDetails(appointment.id)
-                : navigate(`/appointments/${appointment.id}`)
+                ? onViewDetails(appointmentId)
+                : navigate(`/appointments/${appointmentId}`)
             }
             className="flex-1"
             aria-label="View appointment details"
@@ -235,7 +268,7 @@ export const AppointmentCard: React.FC<AppointmentCardProps> = ({
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => onReschedule && onReschedule(appointment.id)}
+            onClick={() => onReschedule && onReschedule(appointmentId)}
             className="flex-1"
             aria-label="Reschedule appointment"
           >
@@ -244,7 +277,7 @@ export const AppointmentCard: React.FC<AppointmentCardProps> = ({
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => onCancel && onCancel(appointment.id)}
+            onClick={() => onCancel && onCancel(appointmentId)}
             className="flex-1 !text-danger hover:!bg-red-50"
             aria-label="Cancel appointment"
           >
@@ -261,8 +294,8 @@ export const AppointmentCard: React.FC<AppointmentCardProps> = ({
           rightIcon={<ChevronRight className="h-4 w-4" />}
           onClick={() =>
             onViewDetails
-              ? onViewDetails(appointment.id)
-              : navigate(`/appointments/${appointment.id}`)
+              ? onViewDetails(appointmentId)
+              : navigate(`/appointments/${appointmentId}`)
           }
           aria-label="View appointment details"
         >
@@ -272,3 +305,4 @@ export const AppointmentCard: React.FC<AppointmentCardProps> = ({
     </Card>
   );
 };
+

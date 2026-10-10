@@ -5,9 +5,15 @@ import {
   Route,
   Navigate,
 } from 'react-router-dom';
+import { AuthProvider } from './context/AuthContext';
+import { ProtectedRoute } from './components/auth/ProtectedRoute';
 import { TopBar } from './components/layout/Navigation';
 
-// Pages
+// Auth Pages
+import { Login } from './pages/Login';
+import { Register } from './pages/Register';
+
+// Core Pages
 import { Dashboard } from './pages/Dashboard';
 import { Health } from './pages/Health';
 import { Conditions } from './pages/Conditions';
@@ -16,6 +22,7 @@ import { Articles } from './pages/Articles';
 import { HealthDetails } from './pages/HealthDetails';
 import { Medications } from './pages/Medications';
 import { AddMedication } from './pages/AddMedication';
+import { EditMedication } from './pages/EditMedication';
 import { Appointments } from './pages/Appointments';
 import { Doctors } from './pages/Doctors';
 import { BookAppointment } from './pages/BookAppointment';
@@ -24,41 +31,90 @@ import { Profile } from './pages/Profile';
 
 const App: React.FC = () => {
   return (
-    <BrowserRouter>
-      {/* Mobile top bar – shown on all pages */}
-      <TopBar />
+    <AuthProvider>
+      <BrowserRouter>
+        {/* Mobile top bar – shown on all pages */}
+        <TopBar />
 
-      <Routes>
-        {/* Root redirect */}
-        <Route path="/" element={<Navigate to="/dashboard" replace />} />
+        <Routes>
+          {/* Public Authentication routes */}
+          <Route path="/login" element={<Login />} />
+          <Route path="/register" element={<Register />} />
 
-        {/* Dashboard */}
-        <Route path="/dashboard" element={<Dashboard />} />
+          {/* Root redirect */}
+          <Route path="/" element={<Navigate to="/dashboard" replace />} />
 
-        {/* Health information */}
-        <Route path="/health" element={<Health />} />
-        <Route path="/health/conditions" element={<Conditions />} />
-        <Route path="/health/medicines" element={<Medicines />} />
-        <Route path="/health/articles" element={<Articles />} />
-        <Route path="/health/:id" element={<HealthDetails />} />
+          {/* Dashboard */}
+          <Route path="/dashboard" element={<Dashboard />} />
 
-        {/* Medications */}
-        <Route path="/medications" element={<Medications />} />
-        <Route path="/medications/add" element={<AddMedication />} />
+          {/* Public Health information */}
+          <Route path="/health" element={<Health />} />
+          <Route path="/health/conditions" element={<Conditions />} />
+          <Route path="/health/medicines" element={<Medicines />} />
+          <Route path="/health/articles" element={<Articles />} />
+          <Route path="/health/:id" element={<HealthDetails />} />
 
-        {/* Appointments */}
-        <Route path="/appointments" element={<Appointments />} />
-        <Route path="/appointments/doctors" element={<Doctors />} />
-        <Route path="/appointments/book" element={<BookAppointment />} />
-        <Route path="/appointments/:id" element={<AppointmentDetails />} />
+          {/* Protected Medications routes */}
+          <Route
+            path="/medications"
+            element={
+              <ProtectedRoute>
+                <Medications />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/medications/add"
+            element={
+              <ProtectedRoute>
+                <AddMedication />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/medications/:id/edit"
+            element={
+              <ProtectedRoute>
+                <EditMedication />
+              </ProtectedRoute>
+            }
+          />
 
-        {/* Profile */}
-        <Route path="/profile" element={<Profile />} />
+          {/* Appointments */}
+          <Route path="/appointments" element={<Appointments />} />
+          <Route path="/appointments/doctors" element={<Doctors />} />
+          <Route
+            path="/appointments/book"
+            element={
+              <ProtectedRoute>
+                <BookAppointment />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/appointments/:id"
+            element={
+              <ProtectedRoute>
+                <AppointmentDetails />
+              </ProtectedRoute>
+            }
+          />
 
-        {/* Fallback */}
-        <Route path="*" element={<Navigate to="/dashboard" replace />} />
-      </Routes>
-    </BrowserRouter>
+          {/* Protected Profile */}
+          <Route
+            path="/profile"
+            element={
+              <ProtectedRoute>
+                <Profile />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Fallback */}
+          <Route path="*" element={<Navigate to="/dashboard" replace />} />
+        </Routes>
+      </BrowserRouter>
+    </AuthProvider>
   );
 };
 

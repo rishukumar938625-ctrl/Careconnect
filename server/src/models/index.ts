@@ -6,7 +6,8 @@
 export { Condition, Condition as HealthCondition, type ICondition } from './Condition.js';
 export { Medicine, type IMedicine } from './Medicine.js';
 export { Article, Article as HealthArticle, type IArticle } from './Article.js';
-export { Medication, type IMedication, type IAdherenceLog } from './Medication.js';
+export { Medication, type IMedication, type MedicationForm, type MedicationFrequency } from './Medication.js';
+export { DoseRecord, type IDoseRecord, type DoseStatus } from './DoseRecord.js';
 export { Doctor, type IDoctor } from './Doctor.js';
 export { Appointment, type IAppointment } from './Appointment.js';
 export { User, User as UserProfile, type IUser } from './User.js';

@@ -102,9 +102,11 @@ export type MedicationFrequency =
   | 'three_times_daily'
   | 'four_times_daily'
   | 'as_needed'
-  | 'weekly';
+  | 'weekly'
+  | 'custom';
 
-export type MedicationStatus = 'upcoming' | 'taken' | 'missed' | 'skipped';
+export type MedicationStatus = 'upcoming' | 'taken' | 'missed' | 'skipped' | 'pending' | 'snoozed';
+export type DoseStatus = 'pending' | 'taken' | 'skipped' | 'snoozed';
 
 export type MedicationForm =
   | 'tablet'
@@ -113,7 +115,8 @@ export type MedicationForm =
   | 'injection'
   | 'topical'
   | 'inhaler'
-  | 'drops';
+  | 'drops'
+  | 'other';
 
 export interface MedicationScheduleEntry {
   id: string;
@@ -123,23 +126,58 @@ export interface MedicationScheduleEntry {
 
 export interface Medication {
   id: string;
+  _id?: string;
   name: string;
   dosage: string;
   form: MedicationForm;
   frequency: MedicationFrequency;
-  times: string[]; // Array of HH:MM strings
+  timesOfDay?: string[];
+  times?: string[]; // Array of HH:MM strings
   startDate: string; // ISO date string
   endDate?: string; // ISO date string
+  instructions?: string;
   notes?: string;
+  timezone?: string;
+  reminderEnabled?: boolean;
   color?: string; // Accent color for the card
+  isActive?: boolean;
   todaySchedule?: MedicationScheduleEntry[];
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface DoseRecord {
+  id: string;
+  _id: string;
+  userId: string;
+  medicationId: Medication;
+  scheduledAt: string;
+  scheduledDate: string;
+  scheduledTime: string;
+  timezone: string;
+  status: DoseStatus;
+  takenAt?: string;
+  snoozedUntil?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface AdherenceStats {
+  totalScheduled: number;
+  takenDoses: number;
+  skippedDoses: number;
+  missedDoses: number;
+  adherenceRate: number;
+  currentStreak: number;
+  period?: string;
 }
 
 // ─── Appointment Types ───────────────────────────────────────────────────────
 
-export type AppointmentType = 'in_person' | 'video';
+export type AppointmentType = 'in_person' | 'in-person' | 'video';
 
 export type AppointmentStatus =
+  | 'booked'
   | 'upcoming'
   | 'completed'
   | 'cancelled'
@@ -155,34 +193,85 @@ export type DoctorSpecialty =
   | 'Psychiatrist'
   | 'Ophthalmologist'
   | 'ENT Specialist'
-  | 'Gynecologist';
+  | 'Gynecologist'
+  | string;
 
 export interface Doctor {
-  id: string;
+  id?: string;
+  _id?: string;
+  slug?: string;
   name: string;
   specialty: DoctorSpecialty;
   qualifications: string;
-  experience: string;
+  experience?: string;
+  experienceYears?: number;
+  hospital?: string;
   rating: number;
   reviewCount: number;
-  availableToday: boolean;
-  nextAvailable: string;
-  consultationFee: string;
+  availableToday?: boolean;
+  nextAvailable?: string;
+  consultationFee: string | number;
+  consultationDurationMinutes?: number;
+  consultationType?: 'in-person' | 'online' | 'both';
+  workingDays?: string[];
+  workingHours?: { start: string; end: string };
   avatarInitials: string;
   avatarColor: string;
+  avatarUrl?: string;
   languages: string[];
+  bio?: string;
+  about?: string;
+  isDemo?: boolean;
+  isActive?: boolean;
+  isAvailable?: boolean;
+}
+
+export interface DoctorSlot {
+  startAt: string;
+  endAt: string;
+  timeSlot: string;
+  displayTime: string;
+  durationMinutes: number;
+  available: boolean;
+  unavailableReason?: 'booked' | 'past' | 'outside_notice' | 'blocked';
+}
+
+export interface DoctorAvailability {
+  date: string;
+  doctorId: string;
+  doctorName: string;
+  timezone: string;
+  isWorkingDay: boolean;
+  isBlocked: boolean;
+  message?: string;
+  slots: DoctorSlot[];
+  availableCount: number;
+  totalSlots: number;
 }
 
 export interface Appointment {
   id: string;
+  _id?: string;
+  patientId?: string;
   doctorId: string;
-  doctor: Doctor;
-  date: string; // ISO date string
-  time: string; // HH:MM
+  doctor?: Doctor;
+  doctorName?: string;
+  doctorSpecialty?: string;
+  doctorAvatar?: string;
+  startAt?: string;
+  endAt?: string;
+  timezone?: string;
+  date: string; // ISO date string or YYYY-MM-DD
+  time?: string; // HH:MM
+  timeSlot?: string; // HH:MM
   type: AppointmentType;
   status: AppointmentStatus;
   reason?: string;
+  cancellationReason?: string;
   notes?: string;
+  hospital?: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 // ─── User Profile Types ──────────────────────────────────────────────────────
@@ -215,6 +304,38 @@ export interface UserProfile {
   reminderSettings: ReminderSettings;
   savedArticleIds: string[];
   savedConditionIds: string[];
+}
+
+export type UserRole = 'patient' | 'doctor' | 'admin';
+
+export interface AuthUser {
+  id: string;
+  _id?: string;
+  name: string;
+  email: string;
+  role: UserRole;
+  isActive: boolean;
+  phone?: string;
+  dateOfBirth?: string;
+  bloodGroup?: string;
+  allergies?: string[];
+  chronicConditions?: string[];
+  emergencyContact?: {
+    name: string;
+    relationship: string;
+    phone: string;
+  };
+  notificationPreferences?: {
+    medicationReminders: boolean;
+    appointmentAlerts: boolean;
+    healthTips: boolean;
+    emailUpdates: boolean;
+  };
+  bookmarkedConditions?: string[];
+  bookmarkedMedicines?: string[];
+  bookmarkedArticles?: string[];
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 // ─── Navigation Types ────────────────────────────────────────────────────────

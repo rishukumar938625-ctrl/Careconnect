@@ -1,12 +1,13 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { Users, AlertCircle, Info, Loader2 } from 'lucide-react';
 import { PageContainer, PageHeader } from '../components/layout/PageContainer';
 import { SearchBar } from '../components/ui/SearchBar';
 import { DoctorCard } from '../components/appointments/AppointmentCards';
 import { EmptyState } from '../components/ui/StateComponents';
-import { mockDoctors } from '../data/mockDoctorData';
-import { filterByQuery } from '../utils';
-import { Users } from 'lucide-react';
+import { Button } from '../components/ui/Button';
+import { doctorApi } from '../services/api';
+import type { Doctor } from '../types';
 
 const specialties = [
   'All',
@@ -24,14 +25,34 @@ export const Doctors: React.FC = () => {
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
   const [activeSpecialty, setActiveSpecialty] = useState<FilterSpecialty>('All');
+  const [doctors, setDoctors] = useState<Doctor[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const filtered = useMemo(() => {
-    let result = filterByQuery(mockDoctors, searchQuery, ['name', 'specialty', 'qualifications']);
-    if (activeSpecialty !== 'All') {
-      result = result.filter((d) => d.specialty === activeSpecialty);
+  const fetchDoctors = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const res = await doctorApi.getAll({
+        q: searchQuery.trim() || undefined,
+        specialty: activeSpecialty !== 'All' ? activeSpecialty : undefined,
+      });
+      setDoctors(res.data || []);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Failed to load doctors directory.';
+      setError(msg);
+    } finally {
+      setLoading(false);
     }
-    return result;
   }, [searchQuery, activeSpecialty]);
+
+  useEffect(() => {
+    // Debounce search input by 250ms
+    const timer = setTimeout(() => {
+      fetchDoctors();
+    }, 250);
+    return () => clearTimeout(timer);
+  }, [fetchDoctors]);
 
   return (
     <PageContainer>
@@ -39,6 +60,14 @@ export const Doctors: React.FC = () => {
         title="Find a Doctor"
         subtitle="Browse our network of healthcare professionals."
       />
+
+      {/* Demo Data Disclaimer Banner */}
+      <div className="flex items-start gap-3 p-3.5 mb-5 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 text-xs">
+        <Info className="h-4 w-4 text-amber-600 flex-shrink-0 mt-0.5" aria-hidden="true" />
+        <div>
+          <span className="font-semibold">Development &amp; Demonstration Mode:</span> All doctor records, qualifications, and schedules shown in this directory are simulated demo data for application testing and do not represent actual medical practices.
+        </div>
+      </div>
 
       <SearchBar
         value={searchQuery}
@@ -72,34 +101,60 @@ export const Doctors: React.FC = () => {
         ))}
       </div>
 
-      {/* Results count */}
-      <p className="text-xs text-text-muted mb-3">
-        {filtered.length} doctor{filtered.length !== 1 ? 's' : ''} found
-      </p>
-
-      {filtered.length === 0 ? (
-        <EmptyState
-          icon={<Users className="h-8 w-8" />}
-          title="No doctors found"
-          description="Try adjusting your search or filter."
-          action={{
-            label: 'Clear filters',
-            onClick: () => {
-              setSearchQuery('');
-              setActiveSpecialty('All');
-            },
-          }}
-        />
-      ) : (
-        <div className="grid gap-3 sm:grid-cols-2">
-          {filtered.map((doctor) => (
-            <DoctorCard
-              key={doctor.id}
-              doctor={doctor}
-              onBook={() => navigate('/appointments/book')}
-            />
-          ))}
+      {/* Loading state */}
+      {loading && (
+        <div className="flex flex-col items-center justify-center py-12 text-text-muted gap-3">
+          <Loader2 className="h-6 w-6 animate-spin text-primary-600" />
+          <p className="text-xs">Loading doctors directory…</p>
         </div>
+      )}
+
+      {/* Error state */}
+      {!loading && error && (
+        <div className="flex flex-col items-center justify-center py-10 gap-3 text-center">
+          <AlertCircle className="h-8 w-8 text-danger" />
+          <p className="text-sm text-text-primary font-medium">{error}</p>
+          <Button variant="outline" size="sm" onClick={fetchDoctors}>
+            Retry
+          </Button>
+        </div>
+      )}
+
+      {/* Results content */}
+      {!loading && !error && (
+        <>
+          <p className="text-xs text-text-muted mb-3">
+            {doctors.length} doctor{doctors.length !== 1 ? 's' : ''} found
+          </p>
+
+          {doctors.length === 0 ? (
+            <EmptyState
+              icon={<Users className="h-8 w-8" />}
+              title="No doctors found"
+              description="Try adjusting your search query or specialty filter."
+              action={{
+                label: 'Clear filters',
+                onClick: () => {
+                  setSearchQuery('');
+                  setActiveSpecialty('All');
+                },
+              }}
+            />
+          ) : (
+            <div className="grid gap-3 sm:grid-cols-2">
+              {doctors.map((doctor) => {
+                const docId = doctor.id || (doctor._id as string) || doctor.slug || '';
+                return (
+                  <DoctorCard
+                    key={docId}
+                    doctor={doctor}
+                    onBook={(id) => navigate(`/appointments/book?doctorId=${id}`)}
+                  />
+                );
+              })}
+            </div>
+          )}
+        </>
       )}
     </PageContainer>
   );

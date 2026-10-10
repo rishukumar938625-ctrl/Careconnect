@@ -4,11 +4,13 @@ import {
   getMedicineBySlug,
   toggleMedicineBookmark,
 } from '../controllers/medicineController.js';
+import { optionalAuth, authenticate } from '../middleware/authMiddleware.js';
+import { validateCsrf } from '../middleware/csrfMiddleware.js';
 
 const router = Router();
 
-router.get('/', getMedicines);
-router.get('/:slug', getMedicineBySlug);
-router.post('/:slug/bookmark', toggleMedicineBookmark);
+router.get('/', optionalAuth, getMedicines);
+router.get('/:slug', optionalAuth, getMedicineBySlug);
+router.post('/:slug/bookmark', authenticate, validateCsrf, toggleMedicineBookmark);
 
 export default router;
