@@ -23,9 +23,9 @@ import userRoutes from './routes/userRoutes.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Load environment variables (server directory has precedence, root directory as fallback)
+// Load environment variables (backend directory has precedence, root directory as fallback)
+dotenv.config({ path: path.resolve(__dirname, '../.env') });
 dotenv.config({ path: path.resolve(__dirname, '../../.env') });
-dotenv.config({ path: path.resolve(__dirname, '../../../.env') });
 dotenv.config();
 
 const app = express();

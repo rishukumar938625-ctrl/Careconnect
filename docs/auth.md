@@ -16,7 +16,7 @@ CareConnect uses an enterprise-grade, cookie-based session architecture powered 
 
 ## 2. Environment Variables
 
-Configure the following variables in `.env` or `server/.env`. Use placeholders only in `.env.example`:
+Configure the following variables in `.env` or `backend/.env`. Use placeholders only in `.env.example`:
 
 ```env
 # Server Runtime
@@ -58,9 +58,9 @@ VITE_API_URL=http://localhost:5000/api
 
 ### Starting the Backend
 ```bash
-npm run server
-# or directly in server/:
-cd server && npm run dev
+npm run dev:backend
+# or directly in backend/:
+cd backend && npm run dev
 ```
 
 ### Starting the Frontend
@@ -77,11 +77,10 @@ The frontend will run on `http://localhost:5173` and communicate with the backen
 Phase 3 includes an automated 13-point test suite using `MongoMemoryServer` for isolated execution without affecting production data:
 
 ```bash
-# Run backend authentication tests
-npm run server:test
+# Run backend tests
+npm run test
 
 # Run full project builds and linter
-npm run server:build
 npm run build
 npm run lint
 ```

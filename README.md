@@ -7,67 +7,185 @@ CareConnect is a modern healthcare web application designed to help patients man
 * **Frontend:** React 18, TypeScript, Vite, Tailwind CSS, Lucide React
 * **Backend:** Node.js, Express, TypeScript, Mongoose
 * **Database:** MongoDB Atlas
-* **Authentication (Phase 3):** Encrypted JWT with `HttpOnly` Secure Cookies, `bcryptjs` hashing, and Double-Submit CSRF protection
+* **Authentication:** Encrypted JWT with `HttpOnly` Secure Cookies, `bcryptjs` hashing, and Double-Submit CSRF protection
+
+---
 
 ## Project Structure
 
+The repository is organized into distinct `frontend/` and `backend/` applications with root orchestration:
+
 ```
 careconnect/
-├── docs/                 # Documentation (Phase 3 Auth, setup, architecture)
-├── public/               # Public assets and favicon
-├── server/               # Express backend application
+├── backend/                  # Express API backend application
 │   ├── src/
-│   │   ├── config/       # MongoDB connection & status
-│   │   ├── controllers/  # Auth, user, health, conditions, medicines, articles
-│   │   ├── middleware/   # Authentication, authorization, CSRF, rate-limiting, error handling
-│   │   ├── models/       # Mongoose schemas (User, Article, Condition, Medicine, etc.)
-│   │   ├── routes/       # Express route definitions (/api/auth, /api/user, etc.)
-│   │   ├── seed/         # Educational health data seeders
-│   │   ├── tests/        # Isolated integration test suites
-│   │   └── utils/        # Token generation, sanitization, pagination
-│   └── package.json
-├── src/                  # React frontend application
-│   ├── components/       # UI primitives, layout, cards, navigation, protected routes
-│   ├── context/          # AuthContext and centralized state
-│   ├── pages/            # Login, Register, Profile, Dashboard, Health, etc.
-│   ├── services/         # API clients with credentialed fetch & CSRF handling
-│   └── types/            # Application-wide TypeScript definitions
-├── package.json
-└── vite.config.ts
+│   │   ├── config/           # MongoDB Atlas connection & health probes
+│   │   ├── controllers/      # Appointment, auth, doctor, dose, medication, health controllers
+│   │   ├── middleware/       # Authentication, CSRF, rate limiter, error handling
+│   │   ├── models/           # Mongoose schemas (User, Doctor, Appointment, Medication, DoseRecord, etc.)
+│   │   ├── routes/           # Route definitions (/api/appointments, /api/auth, /api/doctors, etc.)
+│   │   ├── seed/             # Educational content & demo doctor seeders
+│   │   ├── tests/            # Automated integration test suites (Auth, Medication, Appointments)
+│   │   ├── types/            # Backend TypeScript definitions
+│   │   ├── utils/            # Availability calculations, token signing, pagination helpers
+│   │   └── index.ts          # Express server entry point
+│   ├── .env.example          # Backend environment template
+│   ├── package.json          # Backend dependencies & scripts
+│   └── tsconfig.json         # Backend TypeScript configuration
+├── frontend/                 # Vite React frontend application
+│   ├── public/               # Static assets & favicon
+│   ├── src/
+│   │   ├── components/       # Layout, appointments, medications, health, auth components
+│   │   ├── context/          # AuthContext session provider
+│   │   ├── pages/            # Dashboard, Appointments, BookAppointment, Doctors, Medications, etc.
+│   │   ├── services/         # API clients with credentials & CSRF token forwarding
+│   │   ├── types/            # Frontend interfaces & DTOs
+│   │   ├── App.tsx           # Router & protected route definitions
+│   │   └── main.tsx          # Application root
+│   ├── .env.example          # Frontend environment template
+│   ├── index.html            # Vite entry HTML
+│   ├── package.json          # Frontend dependencies & scripts
+│   ├── postcss.config.js     # PostCSS configuration
+│   ├── tailwind.config.js    # Tailwind CSS design tokens
+│   ├── tsconfig.json         # Frontend TypeScript configuration
+│   └── vite.config.ts        # Vite dev server & proxy configuration
+├── docs/                     # Architecture & authentication specifications
+│   └── auth.md
+├── .env.example              # Unified environment variable template
+├── .gitignore                # Git ignore configuration
+├── package.json              # Root orchestration scripts
+└── README.md
 ```
 
-## Quick Start
+---
 
-### 1. Install Dependencies
+## Prerequisites
+
+* **Node.js:** v18.0.0 or higher
+* **npm:** v9.0.0 or higher
+* **MongoDB:** MongoDB Atlas cluster or local MongoDB instance
+
+---
+
+## Installation
+
+Install all dependencies across the workspace using the root command:
+
 ```bash
-npm install
-npm --prefix server install
+npm run install:all
 ```
 
-### 2. Environment Variables
-Copy `.env.example` to `.env` and `server/.env.example` to `server/.env`. Fill in:
-* `MONGODB_URI`
-* `JWT_SECRET`
+Or install frontend and backend individually:
 
-### 3. Run Development Servers
 ```bash
-# Terminal 1: Backend
-npm run server
+# Frontend dependencies
+cd frontend && npm install
 
-# Terminal 2: Frontend
-npm run dev
+# Backend dependencies
+cd backend && npm install
 ```
 
-### 4. Run Automated Tests
+---
+
+## Environment Configuration
+
+### 1. Backend Setup
+Copy `backend/.env.example` to `backend/.env` (or configure the root `.env`):
+
 ```bash
-npm run server:test
+cp backend/.env.example backend/.env
 ```
 
-### 5. Validate Builds & Lint
+Set the required environment variables:
+* `PORT`: Server port (default: `5000`)
+* `NODE_ENV`: Runtime environment (`development` or `production`)
+* `FRONTEND_URL`: Client URL for CORS whitelist (default: `http://localhost:5173`)
+* `MONGODB_URI`: MongoDB connection string
+* `JWT_SECRET`: Cryptographically strong signing key (>= 32 characters)
+
+### 2. Frontend Setup
+Copy `frontend/.env.example` to `frontend/.env`:
+
 ```bash
-npm run build
-npm run server:build
+cp frontend/.env.example frontend/.env
+```
+
+Set the API endpoint:
+* `VITE_API_URL`: Backend API base URL (default: `http://localhost:5000/api`)
+
+*(Note: Never commit `.env` files containing real secrets to source control.)*
+
+---
+
+## Development Scripts
+
+### Starting the Applications
+
+* **Start both frontend and backend concurrently:**
+  ```bash
+  npm run dev
+  ```
+* **Start only the frontend (Vite on `http://localhost:5173`):**
+  ```bash
+  npm run dev:frontend
+  ```
+* **Start only the backend (Express on `http://localhost:5000`):**
+  ```bash
+  npm run dev:backend
+  ```
+
+---
+
+## Testing & Quality Assurance
+
+Run the comprehensive test suite (37 automated tests across Auth, Medication, and Appointment scheduling):
+
+```bash
+# Run all backend automated tests
+npm run test
+
+# Run individual test suites
+npm run test:auth
+npm run test:medication
+npm run test:appointment
+```
+
+Run code formatting and type checks:
+
+```bash
+# Lint frontend code
 npm run lint
+
+# Build both applications for production
+npm run build
+
+# Build individual applications
+npm run build:frontend
+npm run build:backend
 ```
 
-For complete authentication specifications, see [docs/auth.md](docs/auth.md).
+---
+
+## Database Seeding
+
+Populate development data safely:
+
+```bash
+# Seed synthetic demo doctors (idempotent, clearly labeled demo profiles)
+npm run seed:doctors
+
+# Seed educational health articles and condition guides (idempotent)
+npm run seed:health
+```
+
+---
+
+## Frontend and Backend Communication
+
+* **API Base URL:** The frontend communicates with the backend via `frontend/src/services/api.ts` using `VITE_API_URL` (default: `http://localhost:5000/api`).
+* **Vite Proxy:** `frontend/vite.config.ts` includes a dev proxy for `/api` targeting `http://localhost:5000`.
+* **CORS & Credentials:** The Express backend configures `cors` with `credentials: true` allowing requests from `http://localhost:5173`.
+* **Cookie-Based Sessions:** The session token (`careconnect_token`) is stored in an `HttpOnly` cookie.
+* **Double-Submit CSRF:** All state-modifying requests (`POST`, `PUT`, `PATCH`, `DELETE`) include an `X-CSRF-Token` header matching the `careconnect_csrf_token` cookie.
+
+For authentication architecture details, see [docs/auth.md](docs/auth.md).
