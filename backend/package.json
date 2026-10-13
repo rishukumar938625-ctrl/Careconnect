@@ -11,10 +11,13 @@
     "seed": "tsx src/seed/seedData.ts",
     "seed:health": "tsx src/seed/seedHealthData.ts",
     "seed:doctors": "tsx src/seed/seedDoctors.ts",
-    "test": "tsx src/tests/auth.test.ts && tsx src/tests/medication.test.ts && tsx src/tests/appointment.test.ts",
+    "worker": "tsx src/worker.ts",
+    "test": "tsx src/tests/auth.test.ts && tsx src/tests/medication.test.ts && tsx src/tests/appointment.test.ts && tsx src/tests/phase6.test.ts && tsx src/tests/phase7.test.ts",
     "test:auth": "tsx src/tests/auth.test.ts",
     "test:medication": "tsx src/tests/medication.test.ts",
-    "test:appointment": "tsx src/tests/appointment.test.ts"
+    "test:appointment": "tsx src/tests/appointment.test.ts",
+    "test:profile": "tsx src/tests/phase6.test.ts",
+    "test:notifications": "tsx src/tests/phase7.test.ts"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",

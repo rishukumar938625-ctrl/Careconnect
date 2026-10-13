@@ -19,6 +19,8 @@ import doseRoutes from './routes/doseRoutes.js';
 import appointmentRoutes from './routes/appointmentRoutes.js';
 import doctorRoutes from './routes/doctorRoutes.js';
 import userRoutes from './routes/userRoutes.js';
+import notificationRoutes from './routes/notificationRoutes.js';
+import { defaultWorker } from './services/notificationWorker.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -86,6 +88,7 @@ app.use('/api/doses', doseRoutes);
 app.use('/api/appointments', appointmentRoutes);
 app.use('/api/doctors', doctorRoutes);
 app.use('/api/user', userRoutes);
+app.use('/api/notifications', notificationRoutes);
 
 // ─── Error Handling & 404 Fallbacks ─────────────────────────────────────────
 
@@ -107,6 +110,11 @@ const startServer = async () => {
     console.error(`   ${sanitizeError(error)}`);
     console.error('⚠️ [Server Warning] Starting Express server in degraded mode.');
     console.error('   Inspect GET /api/health/db to verify database connection status.');
+  }
+
+  // Optionally launch background notification worker if enabled in configuration
+  if (process.env.WORKER_ENABLED === 'true') {
+    defaultWorker.start();
   }
 
   const listenOnPort = (portToTry: number, retriesLeft = 1): Promise<import('http').Server> => {
@@ -134,6 +142,9 @@ const startServer = async () => {
   // Graceful shutdown handling
   const shutdown = async (signal: string) => {
     console.log(`\n🛑 Received ${signal}. Gracefully shutting down...`);
+    if (process.env.WORKER_ENABLED === 'true') {
+      await defaultWorker.stop();
+    }
     server.close(async () => {
       await disconnectDB();
       console.log('✅ CareConnect API Server stopped.');

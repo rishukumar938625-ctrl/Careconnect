@@ -11,6 +11,9 @@ import type {
   DoseStatus,
   AdherenceStats,
   PaginatedResponse,
+  UserNotificationPreferences,
+  PersonalHealthProfile,
+  AppNotification,
 } from '../types';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
@@ -402,11 +405,94 @@ export const userApi = {
     });
   },
 
-  updateNotifications: (preferences: Partial<NonNullable<AuthUser['notificationPreferences']>>) => {
-    return fetchJson<NonNullable<AuthUser['notificationPreferences']>>('/user/notifications', {
-      method: 'PATCH',
+  getHealthProfile: () => {
+    return fetchJson<{ status: string; data: PersonalHealthProfile }>('/user/health-profile');
+  },
+
+  updateHealthProfile: (data: Partial<PersonalHealthProfile>) => {
+    return fetchJson<{ status: string; data: PersonalHealthProfile }>('/user/health-profile', {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  },
+
+  addAllergy: (allergy: string) => {
+    return fetchJson<{ status: string; message: string; allergies: string[] }>('/user/health-profile/allergies', {
+      method: 'POST',
+      body: JSON.stringify({ allergy }),
+    });
+  },
+
+  removeAllergy: (allergy: string) => {
+    return fetchJson<{ status: string; message: string; allergies: string[] }>(
+      `/user/health-profile/allergies/${encodeURIComponent(allergy)}`,
+      {
+        method: 'DELETE',
+      }
+    );
+  },
+
+  addCondition: (condition: string) => {
+    return fetchJson<{ status: string; message: string; chronicConditions: string[] }>('/user/health-profile/conditions', {
+      method: 'POST',
+      body: JSON.stringify({ condition }),
+    });
+  },
+
+  removeCondition: (condition: string) => {
+    return fetchJson<{ status: string; message: string; chronicConditions: string[] }>(
+      `/user/health-profile/conditions/${encodeURIComponent(condition)}`,
+      {
+        method: 'DELETE',
+      }
+    );
+  },
+
+  getNotifications: () => {
+    return fetchJson<{ status: string; data: UserNotificationPreferences }>('/user/notifications');
+  },
+
+  updateNotifications: (preferences: Partial<UserNotificationPreferences>) => {
+    return fetchJson<{ status: string; data: UserNotificationPreferences }>('/user/notifications', {
+      method: 'PUT',
       body: JSON.stringify(preferences),
     });
   },
 };
+
+// ─── Notification Service (Phase 7) ──────────────────────────────────────────
+
+export const notificationApi = {
+  getNotifications: (params?: { page?: number; limit?: number; unreadOnly?: boolean }) => {
+    const query = new URLSearchParams();
+    if (params?.page) query.set('page', String(params.page));
+    if (params?.limit) query.set('limit', String(params.limit));
+    if (params?.unreadOnly) query.set('unreadOnly', 'true');
+    const qs = query.toString();
+    return fetchJson<PaginatedResponse<AppNotification>>(`/notifications${qs ? `?${qs}` : ''}`);
+  },
+
+  getUnreadCount: () => {
+    return fetchJson<{ unreadCount: number }>('/notifications/unread-count');
+  },
+
+  markAsRead: (id: string) => {
+    return fetchJson<{ message: string; notification: AppNotification }>(`/notifications/${id}/read`, {
+      method: 'PATCH',
+    });
+  },
+
+  markAllAsRead: () => {
+    return fetchJson<{ message: string; modifiedCount: number }>('/notifications/mark-all-read', {
+      method: 'POST',
+    });
+  },
+
+  syncReminders: () => {
+    return fetchJson<{ message: string; jobsScheduled: number }>('/notifications/sync', {
+      method: 'POST',
+    });
+  },
+};
+
 

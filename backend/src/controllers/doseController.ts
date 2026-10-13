@@ -5,6 +5,10 @@ import { Medication } from '../models/Medication.js';
 import { AuthRequest } from '../middleware/authMiddleware.js';
 import { generateDosesForUser, formatDateStr } from '../utils/scheduler.js';
 import { parsePagination, buildPaginationMeta } from '../utils/queryHelper.js';
+import {
+  cancelMedicationReminderForDose,
+  snoozeMedicationReminder,
+} from '../services/notificationScheduler.js';
 
 /**
  * GET /api/doses/today
@@ -219,6 +223,13 @@ export const updateDoseStatus = async (
 
     await dose.save();
     await dose.populate('medicationId', 'name dosage form instructions color');
+
+    // Notify scheduler of status change safely
+    if (status === 'taken' || status === 'skipped') {
+      await cancelMedicationReminderForDose(dose._id);
+    } else if (status === 'snoozed' && dose.snoozedUntil) {
+      await snoozeMedicationReminder(dose, dose.snoozedUntil, req.user?.notificationPreferences);
+    }
 
     res.status(200).json(dose);
   } catch (error) {

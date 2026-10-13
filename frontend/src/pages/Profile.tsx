@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import {
   Bookmark,
@@ -12,45 +12,125 @@ import {
   X,
   Check,
   User as UserIcon,
+  Plus,
+  Moon,
+  Clock,
+  Globe,
+  Heart,
+  Phone,
+  Info,
+  Bell,
+  Lock,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { PageContainer, PageHeader } from '../components/layout/PageContainer';
-import { Card, CardHeader } from '../components/ui/Card';
+import { Card } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
+import { userApi } from '../services/api';
+import type { UserNotificationPreferences } from '../types';
+
+const COMMON_TIMEZONES = [
+  { value: 'UTC', label: 'UTC (Coordinated Universal Time)' },
+  { value: 'America/New_York', label: 'Eastern Time (US & Canada)' },
+  { value: 'America/Chicago', label: 'Central Time (US & Canada)' },
+  { value: 'America/Denver', label: 'Mountain Time (US & Canada)' },
+  { value: 'America/Los_Angeles', label: 'Pacific Time (US & Canada)' },
+  { value: 'Europe/London', label: 'London, Edinburgh, Dublin (GMT/BST)' },
+  { value: 'Europe/Paris', label: 'Paris, Berlin, Rome (CET/CEST)' },
+  { value: 'Asia/Kolkata', label: 'India Standard Time (IST)' },
+  { value: 'Asia/Dubai', label: 'Gulf Standard Time (GST)' },
+  { value: 'Asia/Singapore', label: 'Singapore Standard Time (SGT)' },
+  { value: 'Asia/Tokyo', label: 'Japan Standard Time (JST)' },
+  { value: 'Australia/Sydney', label: 'Australian Eastern Time (AEST)' },
+];
 
 export const Profile: React.FC = () => {
-  const { user, logout, updateProfile } = useAuth();
+  const { user, logout, updateProfile, refreshUser } = useAuth();
   const navigate = useNavigate();
 
+  // Profile Edit Modal State
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
-  // Edit form state
   const [editName, setEditName] = useState(user?.name || '');
   const [editPhone, setEditPhone] = useState(user?.phone || '');
+  const [editDateOfBirth, setEditDateOfBirth] = useState(user?.dateOfBirth || '');
   const [editBloodGroup, setEditBloodGroup] = useState(user?.bloodGroup || '');
-  const [editAllergies, setEditAllergies] = useState(user?.allergies?.join(', ') || '');
-  const [editEmergencyName, setEditEmergencyName] = useState(user?.emergencyContact?.name || '');
-  const [editEmergencyPhone, setEditEmergencyPhone] = useState(user?.emergencyContact?.phone || '');
-  const [editEmergencyRel, setEditEmergencyRel] = useState(user?.emergencyContact?.relationship || '');
+
+  // Emergency Contact Edit Modal State
+  const [isEmergencyModalOpen, setIsEmergencyModalOpen] = useState(false);
+  const [isSavingEmergency, setIsSavingEmergency] = useState(false);
+  const [emergencySuccess, setEmergencySuccess] = useState(false);
+  const [emergencyError, setEmergencyError] = useState<string | null>(null);
+
+  const [emergencyName, setEmergencyName] = useState(user?.emergencyContact?.name || '');
+  const [emergencyPhone, setEmergencyPhone] = useState(user?.emergencyContact?.phone || '');
+  const [emergencyRel, setEmergencyRel] = useState(user?.emergencyContact?.relationship || '');
+
+  // Quick Health Profile Inline States
+  const [newAllergy, setNewAllergy] = useState('');
+  const [isAddingAllergy, setIsAddingAllergy] = useState(false);
+  const [allergyError, setAllergyError] = useState<string | null>(null);
+
+  const [newCondition, setNewCondition] = useState('');
+  const [isAddingCondition, setIsAddingCondition] = useState(false);
+  const [conditionError, setConditionError] = useState<string | null>(null);
+
+  // Notification Preferences State
+  const [notifPrefs, setNotifPrefs] = useState<UserNotificationPreferences>({
+    medicationReminders: true,
+    appointmentAlerts: true,
+    healthTips: false,
+    emailUpdates: true,
+    quietHoursEnabled: false,
+    quietHoursStart: '22:00',
+    quietHoursEnd: '07:00',
+    timeZone: 'UTC',
+  });
+  const [isSavingNotifs, setIsSavingNotifs] = useState(false);
+  const [notifMessage, setNotifMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  // Sync notification preferences from user state on load
+  useEffect(() => {
+    if (user?.notificationPreferences) {
+      setNotifPrefs({
+        medicationReminders: user.notificationPreferences.medicationReminders ?? true,
+        appointmentAlerts: user.notificationPreferences.appointmentAlerts ?? true,
+        healthTips: user.notificationPreferences.healthTips ?? false,
+        emailUpdates: user.notificationPreferences.emailUpdates ?? true,
+        quietHoursEnabled: user.notificationPreferences.quietHoursEnabled ?? false,
+        quietHoursStart: user.notificationPreferences.quietHoursStart || '22:00',
+        quietHoursEnd: user.notificationPreferences.quietHoursEnd || '07:00',
+        timeZone: user.notificationPreferences.timeZone || 'UTC',
+      });
+    }
+  }, [user]);
 
   const openEditModal = () => {
     if (user) {
       setEditName(user.name);
       setEditPhone(user.phone || '');
+      setEditDateOfBirth(user.dateOfBirth || '');
       setEditBloodGroup(user.bloodGroup || '');
-      setEditAllergies(user.allergies?.join(', ') || '');
-      setEditEmergencyName(user.emergencyContact?.name || '');
-      setEditEmergencyPhone(user.emergencyContact?.phone || '');
-      setEditEmergencyRel(user.emergencyContact?.relationship || '');
     }
     setSaveError(null);
     setSaveSuccess(false);
     setIsEditModalOpen(true);
+  };
+
+  const openEmergencyModal = () => {
+    if (user) {
+      setEmergencyName(user.emergencyContact?.name || '');
+      setEmergencyPhone(user.emergencyContact?.phone || '');
+      setEmergencyRel(user.emergencyContact?.relationship || '');
+    }
+    setEmergencyError(null);
+    setEmergencySuccess(false);
+    setIsEmergencyModalOpen(true);
   };
 
   const handleSaveProfile = async (e: React.FormEvent) => {
@@ -61,28 +141,18 @@ export const Profile: React.FC = () => {
     setIsSaving(true);
 
     try {
-      const parsedAllergies = editAllergies
-        .split(',')
-        .map((s) => s.trim())
-        .filter(Boolean);
-
       await updateProfile({
         name: editName.trim() || user.name,
         phone: editPhone.trim(),
+        dateOfBirth: editDateOfBirth.trim(),
         bloodGroup: editBloodGroup.trim(),
-        allergies: parsedAllergies,
-        emergencyContact: {
-          name: editEmergencyName.trim(),
-          phone: editEmergencyPhone.trim(),
-          relationship: editEmergencyRel.trim(),
-        },
       });
 
       setSaveSuccess(true);
       setTimeout(() => {
         setIsEditModalOpen(false);
         setSaveSuccess(false);
-      }, 800);
+      }, 700);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Failed to update profile.';
       setSaveError(message);
@@ -91,26 +161,124 @@ export const Profile: React.FC = () => {
     }
   };
 
-  const handleToggleNotification = async (key: 'medicationReminders' | 'appointmentAlerts' | 'healthTips' | 'emailUpdates') => {
+  const handleSaveEmergencyContact = async (e: React.FormEvent) => {
+    e.preventDefault();
     if (!user) return;
-    const currentPrefs = user.notificationPreferences || {
-      medicationReminders: true,
-      appointmentAlerts: true,
-      healthTips: false,
-      emailUpdates: true,
-    };
 
-    const newPrefs = {
-      ...currentPrefs,
-      [key]: !currentPrefs[key],
-    };
+    setEmergencyError(null);
+    setIsSavingEmergency(true);
 
     try {
       await updateProfile({
-        notificationPreferences: newPrefs,
+        emergencyContact: {
+          name: emergencyName.trim(),
+          phone: emergencyPhone.trim(),
+          relationship: emergencyRel.trim(),
+        },
       });
+
+      setEmergencySuccess(true);
+      setTimeout(() => {
+        setIsEmergencyModalOpen(false);
+        setEmergencySuccess(false);
+      }, 700);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to update emergency contact.';
+      setEmergencyError(message);
+    } finally {
+      setIsSavingEmergency(false);
+    }
+  };
+
+  // Allergy handlers
+  const handleAddAllergy = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newAllergy.trim() || !user || isAddingAllergy) return;
+
+    setAllergyError(null);
+    setIsAddingAllergy(true);
+
+    try {
+      await userApi.addAllergy(newAllergy.trim());
+      await refreshUser();
+      setNewAllergy('');
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to add allergy.';
+      setAllergyError(message);
+    } finally {
+      setIsAddingAllergy(false);
+    }
+  };
+
+  const handleRemoveAllergy = async (allergyName: string) => {
+    if (!user) return;
+    try {
+      await userApi.removeAllergy(allergyName);
+      await refreshUser();
     } catch {
-      // Ignore background notification toggle error
+      // Ignore removal failure or log safely
+    }
+  };
+
+  // Condition handlers
+  const handleAddCondition = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newCondition.trim() || !user || isAddingCondition) return;
+
+    setConditionError(null);
+    setIsAddingCondition(true);
+
+    try {
+      await userApi.addCondition(newCondition.trim());
+      await refreshUser();
+      setNewCondition('');
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to add health condition.';
+      setConditionError(message);
+    } finally {
+      setIsAddingCondition(false);
+    }
+  };
+
+  const handleRemoveCondition = async (conditionName: string) => {
+    if (!user) return;
+    try {
+      await userApi.removeCondition(conditionName);
+      await refreshUser();
+    } catch {
+      // Ignore removal failure
+    }
+  };
+
+  // Notification preference toggles & updates
+  const handleTogglePref = (key: keyof UserNotificationPreferences) => {
+    setNotifPrefs((prev) => ({
+      ...prev,
+      [key]: !prev[key],
+    }));
+  };
+
+  const handleSaveNotifications = async () => {
+    if (!user || isSavingNotifs) return;
+    setIsSavingNotifs(true);
+    setNotifMessage(null);
+
+    try {
+      const res = await userApi.updateNotifications(notifPrefs);
+      if (res.data) {
+        setNotifPrefs((prev) => ({
+          ...prev,
+          ...res.data,
+        }));
+      }
+      await refreshUser();
+      setNotifMessage({ type: 'success', text: 'Notification preferences saved successfully!' });
+      setTimeout(() => setNotifMessage(null), 3000);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to save preferences.';
+      setNotifMessage({ type: 'error', text: message });
+    } finally {
+      setIsSavingNotifs(false);
     }
   };
 
@@ -129,7 +297,7 @@ export const Profile: React.FC = () => {
           </div>
           <h2 className="text-base font-bold text-text-primary mb-1">Not signed in</h2>
           <p className="text-sm text-text-muted mb-4">
-            Sign in to view and manage your profile and personal health data.
+            Sign in to view and manage your profile, personal health data, and notifications.
           </p>
           <div className="flex justify-center gap-3">
             <Button onClick={() => navigate('/login')} size="md">
@@ -151,115 +319,466 @@ export const Profile: React.FC = () => {
     .substring(0, 2)
     .toUpperCase();
 
-  const notifs = user.notificationPreferences || {
-    medicationReminders: true,
-    appointmentAlerts: true,
-    healthTips: false,
-    emailUpdates: true,
-  };
-
-  const emergencyString = user.emergencyContact?.name
-    ? `${user.emergencyContact.name} (${user.emergencyContact.relationship || 'Contact'}): ${user.emergencyContact.phone || 'No phone'}`
-    : 'None added';
+  const crossesMidnight = Boolean(
+    notifPrefs.quietHoursStart &&
+      notifPrefs.quietHoursEnd &&
+      notifPrefs.quietHoursStart > notifPrefs.quietHoursEnd
+  );
 
   return (
     <PageContainer>
-      <PageHeader title="Profile" />
+      <PageHeader title="Personal Profile & Settings" />
 
-      {/* Profile header card */}
+      {/* Profile Header Summary */}
       <section aria-labelledby="profile-header" className="mb-5">
-        <Card className="flex flex-col items-center gap-3 py-6">
+        <Card className="flex flex-col sm:flex-row items-center sm:items-start gap-4 p-6">
           <div
-            className="flex items-center justify-center w-20 h-20 rounded-2xl text-white text-2xl font-bold bg-primary-600 shadow-md shadow-primary-500/20"
+            className="flex items-center justify-center w-20 h-20 rounded-2xl text-white text-2xl font-bold bg-primary-600 shadow-md shadow-primary-500/20 flex-shrink-0"
             aria-label={`Avatar for ${user.name}`}
           >
             {initials}
           </div>
-          <div className="text-center">
-            <h1 id="profile-header" className="text-xl font-bold text-text-primary">
-              {user.name}
-            </h1>
-            <p className="text-sm text-text-muted">{user.email}</p>
-          </div>
+          <div className="flex-1 text-center sm:text-left">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2 mb-1">
+              <h1 id="profile-header" className="text-xl font-bold text-text-primary">
+                {user.name}
+              </h1>
+              <div className="flex items-center justify-center sm:justify-start gap-1.5">
+                <Badge variant="primary" className="capitalize">
+                  {user.role} Account
+                </Badge>
+                {user.bloodGroup && (
+                  <Badge variant="danger">
+                    <Droplets className="h-3 w-3" aria-hidden="true" />
+                    {user.bloodGroup}
+                  </Badge>
+                )}
+              </div>
+            </div>
+            <p className="text-sm text-text-muted mb-3">{user.email}</p>
 
-          <div className="flex flex-wrap items-center justify-center gap-2">
-            <Badge variant="primary" className="capitalize">
-              {user.role}
-            </Badge>
-            {user.bloodGroup && (
-              <Badge variant="danger">
-                <Droplets className="h-3 w-3" aria-hidden="true" />
-                Blood: {user.bloodGroup}
-              </Badge>
-            )}
-            {user.allergies && user.allergies.length > 0 && user.allergies.map((a) => (
-              <Badge key={a} variant="warning">
-                <AlertCircle className="h-3 w-3" aria-hidden="true" />
-                Allergy: {a}
-              </Badge>
-            ))}
+            <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={openEditModal}
+                leftIcon={<Edit2 className="h-3.5 w-3.5 text-primary-600" />}
+              >
+                Edit Profile
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={openEmergencyModal}
+                leftIcon={<Phone className="h-3.5 w-3.5 text-secondary-600" />}
+              >
+                Emergency Contact
+              </Button>
+            </div>
           </div>
-
-          <button
-            onClick={openEditModal}
-            className="flex items-center gap-1.5 text-sm text-primary-600 hover:text-primary-700 font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 rounded p-1 transition-colors"
-            aria-label="Edit profile information"
-          >
-            <Edit2 className="h-4 w-4" aria-hidden="true" />
-            Edit profile
-          </button>
         </Card>
       </section>
 
-      {/* Personal info */}
+      {/* Personal Information Card */}
       <section className="mb-4" aria-labelledby="personal-info-heading">
         <Card>
-          <CardHeader title="Personal information" />
-          <div className="flex flex-col gap-3">
-            <ProfileInfoRow label="Full name" value={user.name} />
-            <ProfileInfoRow label="Email" value={user.email} />
-            <ProfileInfoRow label="Phone number" value={user.phone || 'Not provided'} />
-            <ProfileInfoRow label="Date of birth" value={user.dateOfBirth || 'Not provided'} />
-            <ProfileInfoRow label="Blood group" value={user.bloodGroup || '—'} />
-            <ProfileInfoRow label="Emergency contact" value={emergencyString} />
+          <div className="flex items-center justify-between pb-3 mb-3 border-b border-slate-100">
+            <div>
+              <h2 id="personal-info-heading" className="text-base font-semibold text-text-primary">
+                Personal Information
+              </h2>
+              <p className="text-xs text-text-muted mt-0.5">Basic identity and contact details</p>
+            </div>
+            <Button variant="ghost" size="sm" onClick={openEditModal}>
+              <Edit2 className="h-4 w-4 mr-1 text-primary-600" />
+              Edit
+            </Button>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <ProfileInfoRow label="Full Name" value={user.name} />
+            <ProfileInfoRow
+              label="Email Address"
+              value={
+                <span className="flex items-center gap-1.5">
+                  {user.email}
+                  <span title="Email is protected">
+                    <Lock className="h-3 w-3 text-slate-400" />
+                  </span>
+                </span>
+              }
+            />
+            <ProfileInfoRow label="Phone Number" value={user.phone || 'Not provided'} />
+            <ProfileInfoRow label="Date of Birth" value={user.dateOfBirth || 'Not provided'} />
+            <ProfileInfoRow label="Blood Group" value={user.bloodGroup || 'Not specified'} />
+            <ProfileInfoRow
+              label="Account Role"
+              value={
+                <span className="flex items-center gap-1.5 capitalize">
+                  {user.role}
+                  <span title="Role is protected">
+                    <Lock className="h-3 w-3 text-slate-400" />
+                  </span>
+                </span>
+              }
+            />
           </div>
         </Card>
       </section>
 
-      {/* Notification preferences */}
+      {/* Personal Health Profile (Allergies & Conditions) */}
+      <section className="mb-4" aria-labelledby="health-profile-heading">
+        <Card>
+          <div className="flex items-start justify-between pb-3 mb-3 border-b border-slate-100">
+            <div>
+              <div className="flex items-center gap-2">
+                <Heart className="h-5 w-5 text-red-500" aria-hidden="true" />
+                <h2 id="health-profile-heading" className="text-base font-semibold text-text-primary">
+                  Personal Health Profile
+                </h2>
+              </div>
+              <p className="text-xs text-text-muted mt-0.5">
+                Self-reported allergies and ongoing conditions for your personal tracking
+              </p>
+            </div>
+            <Badge variant="neutral" className="text-[11px] hidden sm:inline-flex">
+              User-Managed
+            </Badge>
+          </div>
+
+          {/* Non-diagnostic notice banner */}
+          <div className="flex items-start gap-2.5 p-3 rounded-xl bg-blue-50/70 border border-blue-100 text-blue-900 mb-4 text-xs">
+            <Info className="h-4 w-4 text-blue-600 flex-shrink-0 mt-0.5" aria-hidden="true" />
+            <p>
+              <strong>Notice:</strong> This information is user-provided for your personal wellness tracking. It does not constitute a clinical medical diagnosis or medical record.
+            </p>
+          </div>
+
+          {/* Allergies Section */}
+          <div className="mb-5">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm font-semibold text-text-primary flex items-center gap-1.5">
+                <AlertCircle className="h-4 w-4 text-warning" />
+                Allergies ({user.allergies?.length || 0})
+              </span>
+              <span className="text-xs text-text-muted">Max 30 items</span>
+            </div>
+
+            {/* List of allergies chips */}
+            <div className="flex flex-wrap gap-2 mb-3 min-h-[32px] items-center">
+              {user.allergies && user.allergies.length > 0 ? (
+                user.allergies.map((allergy) => (
+                  <span
+                    key={allergy}
+                    className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-amber-50 text-amber-900 border border-amber-200"
+                  >
+                    <span>{allergy}</span>
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveAllergy(allergy)}
+                      className="text-amber-700 hover:text-amber-950 p-0.5 rounded-full hover:bg-amber-100 transition-colors"
+                      aria-label={`Remove allergy ${allergy}`}
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </span>
+                ))
+              ) : (
+                <p className="text-xs text-text-muted italic">No allergies recorded.</p>
+              )}
+            </div>
+
+            {/* Add allergy form */}
+            <form onSubmit={handleAddAllergy} className="flex gap-2">
+              <input
+                type="text"
+                value={newAllergy}
+                onChange={(e) => setNewAllergy(e.target.value)}
+                placeholder="Add an allergy (e.g. Penicillin, Peanuts)"
+                maxLength={60}
+                disabled={isAddingAllergy}
+                className="flex-1 px-3 py-1.5 text-xs rounded-xl border border-slate-200 bg-white text-text-primary focus:outline-none focus:ring-2 focus:ring-primary-500"
+              />
+              <Button
+                type="submit"
+                size="sm"
+                loading={isAddingAllergy}
+                disabled={!newAllergy.trim() || isAddingAllergy}
+                leftIcon={<Plus className="h-3.5 w-3.5" />}
+              >
+                Add
+              </Button>
+            </form>
+            {allergyError && <p className="text-xs text-red-600 mt-1">{allergyError}</p>}
+          </div>
+
+          {/* Chronic Conditions Section */}
+          <div className="mb-5 pt-4 border-t border-slate-100">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm font-semibold text-text-primary flex items-center gap-1.5">
+                <Heart className="h-4 w-4 text-primary-600" />
+                Health Conditions ({user.chronicConditions?.length || 0})
+              </span>
+              <span className="text-xs text-text-muted">Max 30 items</span>
+            </div>
+
+            {/* List of condition chips */}
+            <div className="flex flex-wrap gap-2 mb-3 min-h-[32px] items-center">
+              {user.chronicConditions && user.chronicConditions.length > 0 ? (
+                user.chronicConditions.map((condition) => (
+                  <span
+                    key={condition}
+                    className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-blue-50 text-blue-900 border border-blue-200"
+                  >
+                    <span>{condition}</span>
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveCondition(condition)}
+                      className="text-blue-700 hover:text-blue-950 p-0.5 rounded-full hover:bg-blue-100 transition-colors"
+                      aria-label={`Remove condition ${condition}`}
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </span>
+                ))
+              ) : (
+                <p className="text-xs text-text-muted italic">No ongoing conditions recorded.</p>
+              )}
+            </div>
+
+            {/* Add condition form */}
+            <form onSubmit={handleAddCondition} className="flex gap-2">
+              <input
+                type="text"
+                value={newCondition}
+                onChange={(e) => setNewCondition(e.target.value)}
+                placeholder="Add condition (e.g. Asthma, Hypertension)"
+                maxLength={100}
+                disabled={isAddingCondition}
+                className="flex-1 px-3 py-1.5 text-xs rounded-xl border border-slate-200 bg-white text-text-primary focus:outline-none focus:ring-2 focus:ring-primary-500"
+              />
+              <Button
+                type="submit"
+                size="sm"
+                loading={isAddingCondition}
+                disabled={!newCondition.trim() || isAddingCondition}
+                leftIcon={<Plus className="h-3.5 w-3.5" />}
+              >
+                Add
+              </Button>
+            </form>
+            {conditionError && <p className="text-xs text-red-600 mt-1">{conditionError}</p>}
+          </div>
+
+          {/* Emergency Contact Summary */}
+          <div className="pt-4 border-t border-slate-100">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm font-semibold text-text-primary flex items-center gap-1.5">
+                <Phone className="h-4 w-4 text-emerald-600" />
+                Emergency Contact
+              </span>
+              <button
+                type="button"
+                onClick={openEmergencyModal}
+                className="text-xs font-medium text-primary-600 hover:text-primary-700"
+              >
+                {user.emergencyContact?.name ? 'Edit Contact' : 'Add Contact'}
+              </button>
+            </div>
+            {user.emergencyContact?.name ? (
+              <div className="p-3 rounded-xl bg-slate-50 border border-slate-100 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div>
+                  <span className="font-semibold text-text-primary">{user.emergencyContact.name}</span>
+                  <span className="text-text-muted"> ({user.emergencyContact.relationship || 'Contact'})</span>
+                </div>
+                <div className="text-text-secondary font-mono">
+                  {user.emergencyContact.phone || 'No phone number'}
+                </div>
+              </div>
+            ) : (
+              <p className="text-xs text-text-muted italic">No emergency contact designated.</p>
+            )}
+          </div>
+        </Card>
+      </section>
+
+      {/* Notification Preferences & Quiet Hours Card */}
       <section className="mb-4" aria-labelledby="notification-prefs-heading">
         <Card>
-          <CardHeader title="Notification preferences" />
-          <div className="flex flex-col gap-4">
+          <div className="flex items-center justify-between pb-3 mb-3 border-b border-slate-100">
+            <div>
+              <div className="flex items-center gap-2">
+                <Bell className="h-5 w-5 text-primary-600" />
+                <h2 id="notification-prefs-heading" className="text-base font-semibold text-text-primary">
+                  Notification Preferences & Quiet Hours
+                </h2>
+              </div>
+              <p className="text-xs text-text-muted mt-0.5">
+                Configure your reminder alerts, sleep windows, and local time zone
+              </p>
+            </div>
+            <Badge variant="primary" className="text-[11px] hidden sm:inline-flex">
+              Phase 6 Settings
+            </Badge>
+          </div>
+
+          {/* Phase 7 delivery notice */}
+          <div className="flex items-start gap-2.5 p-3 rounded-xl bg-amber-50/70 border border-amber-200 text-amber-900 mb-4 text-xs">
+            <Clock className="h-4 w-4 text-amber-600 flex-shrink-0 mt-0.5" aria-hidden="true" />
+            <p>
+              <strong>Note:</strong> Preferences configured here are securely saved to your profile. Automated notification dispatch, push delivery, and background worker jobs will be enabled in Phase 7.
+            </p>
+          </div>
+
+          {notifMessage && (
+            <div
+              role="alert"
+              className={`p-3 rounded-xl text-xs mb-4 flex items-center gap-2 ${
+                notifMessage.type === 'success'
+                  ? 'bg-emerald-50 text-emerald-800 border border-emerald-100'
+                  : 'bg-red-50 text-red-800 border border-red-100'
+              }`}
+            >
+              {notifMessage.type === 'success' ? <Check className="h-4 w-4 text-emerald-600" /> : <AlertCircle className="h-4 w-4 text-red-600" />}
+              {notifMessage.text}
+            </div>
+          )}
+
+          {/* Reminder Toggles */}
+          <div className="space-y-3 mb-6">
             <ToggleRow
-              label="Medication reminders"
-              checked={Boolean(notifs.medicationReminders)}
-              onChange={() => handleToggleNotification('medicationReminders')}
+              label="Medication reminder alerts"
+              description="Receive alerts for upcoming and scheduled medication doses"
+              checked={Boolean(notifPrefs.medicationReminders)}
+              onChange={() => handleTogglePref('medicationReminders')}
               id="notif-meds"
             />
             <ToggleRow
               label="Appointment alerts"
-              checked={Boolean(notifs.appointmentAlerts)}
-              onChange={() => handleToggleNotification('appointmentAlerts')}
+              description="Notifications for confirmed, rescheduled, and upcoming consultations"
+              checked={Boolean(notifPrefs.appointmentAlerts)}
+              onChange={() => handleTogglePref('appointmentAlerts')}
               id="notif-appts"
             />
             <ToggleRow
               label="Educational health tips"
-              checked={Boolean(notifs.healthTips)}
-              onChange={() => handleToggleNotification('healthTips')}
+              description="Occasional verified medical articles and seasonal advice"
+              checked={Boolean(notifPrefs.healthTips)}
+              onChange={() => handleTogglePref('healthTips')}
               id="notif-tips"
             />
             <ToggleRow
               label="Email updates"
-              checked={Boolean(notifs.emailUpdates)}
-              onChange={() => handleToggleNotification('emailUpdates')}
+              description="Account and appointment confirmations sent to your registered email"
+              checked={Boolean(notifPrefs.emailUpdates)}
+              onChange={() => handleTogglePref('emailUpdates')}
               id="notif-email"
             />
+          </div>
+
+          {/* Quiet Hours Sub-Section */}
+          <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100 mb-6">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <Moon className="h-4 w-4 text-indigo-600" />
+                <span className="text-sm font-semibold text-text-primary">Quiet Hours</span>
+              </div>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={notifPrefs.quietHoursEnabled}
+                onClick={() => handleTogglePref('quietHoursEnabled')}
+                className={`relative inline-flex h-6 w-11 flex-shrink-0 rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary-500 ${
+                  notifPrefs.quietHoursEnabled ? 'bg-primary-600' : 'bg-slate-300'
+                }`}
+                aria-label="Toggle quiet hours"
+              >
+                <span
+                  className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-lg transition duration-200 ease-in-out ${
+                    notifPrefs.quietHoursEnabled ? 'translate-x-5' : 'translate-x-0'
+                  }`}
+                />
+              </button>
+            </div>
+            <p className="text-xs text-text-secondary mb-4">
+              Suppress audible sound and banner notifications during your sleep hours.
+            </p>
+
+            {notifPrefs.quietHoursEnabled && (
+              <div className="space-y-4 pt-2 border-t border-slate-200">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label htmlFor="quiet-start" className="block text-xs font-medium text-text-secondary mb-1">
+                      Start Time (Quiet begins)
+                    </label>
+                    <input
+                      id="quiet-start"
+                      type="time"
+                      value={notifPrefs.quietHoursStart}
+                      onChange={(e) => setNotifPrefs((prev) => ({ ...prev, quietHoursStart: e.target.value }))}
+                      className="w-full px-3 py-1.5 text-xs rounded-xl border border-slate-200 bg-white text-text-primary focus:outline-none focus:ring-2 focus:ring-primary-500"
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="quiet-end" className="block text-xs font-medium text-text-secondary mb-1">
+                      End Time (Quiet ends)
+                    </label>
+                    <input
+                      id="quiet-end"
+                      type="time"
+                      value={notifPrefs.quietHoursEnd}
+                      onChange={(e) => setNotifPrefs((prev) => ({ ...prev, quietHoursEnd: e.target.value }))}
+                      className="w-full px-3 py-1.5 text-xs rounded-xl border border-slate-200 bg-white text-text-primary focus:outline-none focus:ring-2 focus:ring-primary-500"
+                    />
+                  </div>
+                </div>
+
+                {crossesMidnight && (
+                  <div className="flex items-center gap-2 p-2 rounded-lg bg-indigo-50 border border-indigo-100 text-indigo-900 text-xs">
+                    <Moon className="h-3.5 w-3.5 text-indigo-600" />
+                    <span>Crosses midnight window ({notifPrefs.quietHoursStart} to {notifPrefs.quietHoursEnd} next morning)</span>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Time Zone Selector */}
+          <div className="mb-6">
+            <label htmlFor="user-timezone" className="block text-xs font-semibold text-text-primary mb-1.5 flex items-center gap-1.5">
+              <Globe className="h-4 w-4 text-primary-600" />
+              Local Time Zone
+            </label>
+            <select
+              id="user-timezone"
+              value={notifPrefs.timeZone}
+              onChange={(e) => setNotifPrefs((prev) => ({ ...prev, timeZone: e.target.value }))}
+              className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-white text-text-primary focus:outline-none focus:ring-2 focus:ring-primary-500"
+            >
+              {COMMON_TIMEZONES.map((tz) => (
+                <option key={tz.value} value={tz.value}>
+                  {tz.label} ({tz.value})
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Save Preferences Button */}
+          <div className="flex justify-end pt-3 border-t border-slate-100">
+            <Button
+              type="button"
+              onClick={handleSaveNotifications}
+              loading={isSavingNotifs}
+              disabled={isSavingNotifs}
+              size="md"
+            >
+              Save Notification Preferences
+            </Button>
           </div>
         </Card>
       </section>
 
-      {/* User bookmarks and settings links */}
+      {/* Bookmarks and System Links */}
       <section className="mb-6" aria-labelledby="bookmarks-settings-heading">
         <Card padding="none">
           <h2 id="bookmarks-settings-heading" className="sr-only">
@@ -271,9 +790,7 @@ export const Profile: React.FC = () => {
           >
             <Bookmark className="h-5 w-5 text-primary-600" />
             <span className="flex-1 text-sm font-medium text-text-primary">Saved articles</span>
-            <span className="text-xs text-text-muted">
-              {user.bookmarkedArticles?.length || 0} saved
-            </span>
+            <span className="text-xs text-text-muted">{user.bookmarkedArticles?.length || 0} saved</span>
             <ChevronRight className="h-4 w-4 text-text-muted" aria-hidden="true" />
           </Link>
 
@@ -283,9 +800,7 @@ export const Profile: React.FC = () => {
           >
             <Bookmark className="h-5 w-5 text-primary-600" />
             <span className="flex-1 text-sm font-medium text-text-primary">Saved health conditions</span>
-            <span className="text-xs text-text-muted">
-              {user.bookmarkedConditions?.length || 0} saved
-            </span>
+            <span className="text-xs text-text-muted">{user.bookmarkedConditions?.length || 0} saved</span>
             <ChevronRight className="h-4 w-4 text-text-muted" aria-hidden="true" />
           </Link>
 
@@ -295,9 +810,7 @@ export const Profile: React.FC = () => {
           >
             <Bookmark className="h-5 w-5 text-primary-600" />
             <span className="flex-1 text-sm font-medium text-text-primary">Saved medicines</span>
-            <span className="text-xs text-text-muted">
-              {user.bookmarkedMedicines?.length || 0} saved
-            </span>
+            <span className="text-xs text-text-muted">{user.bookmarkedMedicines?.length || 0} saved</span>
             <ChevronRight className="h-4 w-4 text-text-muted" aria-hidden="true" />
           </Link>
 
@@ -310,7 +823,7 @@ export const Profile: React.FC = () => {
           <div className="flex items-center gap-3 w-full px-4 py-3.5 text-left">
             <HelpCircle className="h-5 w-5 text-text-muted" />
             <span className="flex-1 text-sm font-medium text-text-primary">Help & support</span>
-            <span className="text-xs text-text-muted">v0.3.0</span>
+            <span className="text-xs text-text-muted">CareConnect v0.6.0</span>
           </div>
         </Card>
       </section>
@@ -340,7 +853,7 @@ export const Profile: React.FC = () => {
           <div className="bg-white rounded-2xl w-full max-w-lg p-6 shadow-xl border border-slate-100 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between pb-4 border-b border-slate-100 mb-4">
               <h2 id="edit-profile-modal-title" className="text-lg font-bold text-text-primary">
-                Edit personal profile
+                Edit Personal Profile
               </h2>
               <button
                 onClick={() => setIsEditModalOpen(false)}
@@ -378,7 +891,15 @@ export const Profile: React.FC = () => {
                 type="tel"
                 value={editPhone}
                 onChange={(e) => setEditPhone(e.target.value)}
-                placeholder="+91 98765 43210"
+                placeholder="+1 555-019-2834"
+                disabled={isSaving}
+              />
+
+              <Input
+                label="Date of birth"
+                type="date"
+                value={editDateOfBirth}
+                onChange={(e) => setEditDateOfBirth(e.target.value)}
                 disabled={isSaving}
               />
 
@@ -386,44 +907,13 @@ export const Profile: React.FC = () => {
                 label="Blood group"
                 value={editBloodGroup}
                 onChange={(e) => setEditBloodGroup(e.target.value)}
-                placeholder="e.g. O+, A+, B+"
+                placeholder="e.g. O+, A+, B+, AB-"
                 disabled={isSaving}
               />
 
-              <Input
-                label="Allergies (comma-separated)"
-                value={editAllergies}
-                onChange={(e) => setEditAllergies(e.target.value)}
-                placeholder="e.g. Penicillin, Peanuts"
-                disabled={isSaving}
-              />
-
-              <div className="pt-2 border-t border-slate-100">
-                <p className="text-xs font-semibold text-text-secondary mb-3">Emergency contact details</p>
-                <div className="space-y-3">
-                  <Input
-                    label="Contact name"
-                    value={editEmergencyName}
-                    onChange={(e) => setEditEmergencyName(e.target.value)}
-                    placeholder="e.g. Jane Doe"
-                    disabled={isSaving}
-                  />
-                  <Input
-                    label="Relationship"
-                    value={editEmergencyRel}
-                    onChange={(e) => setEditEmergencyRel(e.target.value)}
-                    placeholder="e.g. Spouse, Brother"
-                    disabled={isSaving}
-                  />
-                  <Input
-                    label="Contact phone"
-                    type="tel"
-                    value={editEmergencyPhone}
-                    onChange={(e) => setEditEmergencyPhone(e.target.value)}
-                    placeholder="+91 98765 43211"
-                    disabled={isSaving}
-                  />
-                </div>
+              <div className="p-3 rounded-xl bg-slate-50 border border-slate-100 text-[11px] text-text-muted flex items-center gap-2">
+                <Lock className="h-3.5 w-3.5 text-slate-400" />
+                <span>Email address and account role are protected and cannot be changed here.</span>
               </div>
 
               <div className="flex gap-3 pt-4 border-t border-slate-100">
@@ -436,13 +926,91 @@ export const Profile: React.FC = () => {
                 >
                   Cancel
                 </Button>
+                <Button type="submit" loading={isSaving} disabled={isSaving} fullWidth>
+                  Save changes
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Emergency Contact Modal */}
+      {isEmergencyModalOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fadeIn"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="edit-emergency-modal-title"
+        >
+          <div className="bg-white rounded-2xl w-full max-w-md p-6 shadow-xl border border-slate-100">
+            <div className="flex items-center justify-between pb-4 border-b border-slate-100 mb-4">
+              <h2 id="edit-emergency-modal-title" className="text-lg font-bold text-text-primary">
+                Emergency Contact Details
+              </h2>
+              <button
+                onClick={() => setIsEmergencyModalOpen(false)}
+                className="text-text-muted hover:text-text-primary p-1 rounded-lg"
+                aria-label="Close emergency contact dialog"
+              >
+                <X className="h-5 w-5" aria-hidden="true" />
+              </button>
+            </div>
+
+            {emergencyError && (
+              <div role="alert" className="mb-4 p-3 rounded-xl bg-red-50 border border-red-100 text-red-700 text-xs">
+                {emergencyError}
+              </div>
+            )}
+
+            {emergencySuccess && (
+              <div role="status" className="mb-4 p-3 rounded-xl bg-emerald-50 border border-emerald-100 text-emerald-800 text-xs flex items-center gap-2">
+                <Check className="h-4 w-4 text-emerald-600" />
+                Emergency contact updated successfully!
+              </div>
+            )}
+
+            <form onSubmit={handleSaveEmergencyContact} className="space-y-4">
+              <Input
+                label="Contact Name"
+                required
+                value={emergencyName}
+                onChange={(e) => setEmergencyName(e.target.value)}
+                placeholder="e.g. Sarah Connor"
+                disabled={isSavingEmergency}
+              />
+
+              <Input
+                label="Relationship"
+                required
+                value={emergencyRel}
+                onChange={(e) => setEmergencyRel(e.target.value)}
+                placeholder="e.g. Spouse, Parent, Sibling"
+                disabled={isSavingEmergency}
+              />
+
+              <Input
+                label="Phone Number"
+                type="tel"
+                required
+                value={emergencyPhone}
+                onChange={(e) => setEmergencyPhone(e.target.value)}
+                placeholder="e.g. +1 555-019-9999"
+                disabled={isSavingEmergency}
+              />
+
+              <div className="flex gap-3 pt-4 border-t border-slate-100">
                 <Button
-                  type="submit"
-                  loading={isSaving}
-                  disabled={isSaving}
+                  type="button"
+                  variant="outline"
+                  onClick={() => setIsEmergencyModalOpen(false)}
+                  disabled={isSavingEmergency}
                   fullWidth
                 >
-                  Save changes
+                  Cancel
+                </Button>
+                <Button type="submit" loading={isSavingEmergency} disabled={isSavingEmergency} fullWidth>
+                  Save Contact
                 </Button>
               </div>
             </form>
@@ -452,7 +1020,7 @@ export const Profile: React.FC = () => {
 
       {/* Footer disclaimer */}
       <p className="text-[11px] text-text-muted text-center px-4 leading-relaxed">
-        CareConnect provides general educational information and is not a substitute for professional medical advice, diagnosis, or treatment.
+        CareConnect provides general educational information and personal management tools. It is not a substitute for clinical medical evaluation, diagnosis, or emergency healthcare services.
       </p>
     </PageContainer>
   );
@@ -460,20 +1028,19 @@ export const Profile: React.FC = () => {
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
-const ProfileInfoRow: React.FC<{ label: string; value: string }> = ({
+const ProfileInfoRow: React.FC<{ label: string; value: React.ReactNode }> = ({
   label,
   value,
 }) => (
-  <div className="flex items-center justify-between gap-2 py-0.5">
-    <span className="text-sm text-text-muted">{label}</span>
-    <span className="text-sm font-medium text-text-primary text-right">
-      {value}
-    </span>
+  <div className="flex flex-col py-1 border-b border-slate-50">
+    <span className="text-xs text-text-muted mb-0.5">{label}</span>
+    <span className="text-sm font-medium text-text-primary">{value}</span>
   </div>
 );
 
 interface ToggleRowProps {
   label: string;
+  description?: string;
   checked: boolean;
   onChange: () => void;
   id: string;
@@ -481,32 +1048,32 @@ interface ToggleRowProps {
 
 const ToggleRow: React.FC<ToggleRowProps> = ({
   label,
+  description,
   checked,
   onChange,
   id,
 }) => (
-  <div className="flex items-center justify-between gap-3">
-    <label htmlFor={id} className="text-sm text-text-primary cursor-pointer flex-1">
-      {label}
-    </label>
+  <div className="flex items-start justify-between gap-3 py-1">
+    <div className="flex-1">
+      <label htmlFor={id} className="text-sm font-medium text-text-primary cursor-pointer block">
+        {label}
+      </label>
+      {description && <p className="text-xs text-text-muted mt-0.5">{description}</p>}
+    </div>
     <button
       id={id}
+      type="button"
       role="switch"
       aria-checked={checked}
       onClick={onChange}
-      className={[
-        'relative inline-flex h-6 w-11 flex-shrink-0 rounded-full border-2 border-transparent',
-        'transition-colors duration-200 ease-in-out',
-        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2',
-        checked ? 'bg-primary-600' : 'bg-slate-200',
-      ].join(' ')}
+      className={`relative inline-flex h-6 w-11 flex-shrink-0 rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary-500 mt-0.5 ${
+        checked ? 'bg-primary-600' : 'bg-slate-200'
+      }`}
     >
       <span
-        className={[
-          'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-lg',
-          'transition duration-200 ease-in-out',
-          checked ? 'translate-x-5' : 'translate-x-0',
-        ].join(' ')}
+        className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-lg transition duration-200 ease-in-out ${
+          checked ? 'translate-x-5' : 'translate-x-0'
+        }`}
         aria-hidden="true"
       />
     </button>

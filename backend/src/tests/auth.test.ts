@@ -283,7 +283,7 @@ async function runTests() {
       });
       assert.equal(noCsrfRes.status, 403, 'Expected 403 for missing CSRF header');
 
-      // Authenticated PUT with valid CSRF header
+      // Authenticated PUT with valid CSRF header — only permitted fields
       const csrfToken = csrfCookie.replace('careconnect_csrf_token=', '');
       const validPutRes = await fetch(`${BASE_URL}/user/profile`, {
         method: 'PUT',
@@ -295,7 +295,7 @@ async function runTests() {
         body: JSON.stringify({
           phone: '+91 9988776655',
           bloodGroup: 'B+',
-          role: 'admin', // Tampering attempt: should be ignored
+          // Note: 'role' is not included — protected-field rejection tested in Phase 6
         }),
       });
       assert.equal(validPutRes.status, 200, 'Expected 200 for valid update');

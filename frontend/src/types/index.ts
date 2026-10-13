@@ -306,6 +306,31 @@ export interface UserProfile {
   savedConditionIds: string[];
 }
 
+export interface UserNotificationPreferences {
+  medicationReminders: boolean;
+  appointmentAlerts: boolean;
+  healthTips: boolean;
+  emailUpdates: boolean;
+  quietHoursEnabled: boolean;
+  quietHoursStart: string;
+  quietHoursEnd: string;
+  timeZone: string;
+  crossesMidnight?: boolean;
+  deliveryNotice?: string;
+}
+
+export interface PersonalHealthProfile {
+  bloodGroup: string;
+  allergies: string[];
+  chronicConditions: string[];
+  emergencyContact: {
+    name: string;
+    relationship: string;
+    phone: string;
+  };
+  disclaimer?: string;
+}
+
 export type UserRole = 'patient' | 'doctor' | 'admin';
 
 export interface AuthUser {
@@ -325,12 +350,7 @@ export interface AuthUser {
     relationship: string;
     phone: string;
   };
-  notificationPreferences?: {
-    medicationReminders: boolean;
-    appointmentAlerts: boolean;
-    healthTips: boolean;
-    emailUpdates: boolean;
-  };
+  notificationPreferences?: UserNotificationPreferences;
   bookmarkedConditions?: string[];
   bookmarkedMedicines?: string[];
   bookmarkedArticles?: string[];
@@ -352,3 +372,34 @@ export interface NavItem {
 export type ButtonVariant = 'primary' | 'secondary' | 'outline' | 'ghost' | 'danger';
 export type ButtonSize = 'sm' | 'md' | 'lg';
 export type BadgeVariant = 'primary' | 'secondary' | 'success' | 'warning' | 'danger' | 'neutral';
+
+// ─── Notification Types (Phase 7) ───────────────────────────────────────────
+
+export type NotificationType =
+  | 'medication_reminder'
+  | 'appointment_reminder'
+  | 'health_tip'
+  | 'system';
+
+export interface AppNotification {
+  id: string;
+  _id: string;
+  userId: string;
+  type: NotificationType;
+  title: string;
+  message: string;
+  channel: 'in_app' | 'email' | 'sms';
+  read: boolean;
+  readAt?: string;
+  data?: {
+    medicationId?: string;
+    doseId?: string;
+    appointmentId?: string;
+    doctorName?: string;
+    scheduledFor?: string;
+    actionUrl?: string;
+    [key: string]: unknown;
+  };
+  createdAt: string;
+  updatedAt: string;
+}

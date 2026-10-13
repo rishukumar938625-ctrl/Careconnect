@@ -28,6 +28,7 @@ import { Doctors } from './pages/Doctors';
 import { BookAppointment } from './pages/BookAppointment';
 import { AppointmentDetails } from './pages/AppointmentDetails';
 import { Profile } from './pages/Profile';
+import { Notifications } from './pages/Notifications';
 
 const App: React.FC = () => {
   return (
@@ -106,6 +107,16 @@ const App: React.FC = () => {
             element={
               <ProtectedRoute>
                 <Profile />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Protected Notifications Center */}
+          <Route
+            path="/notifications"
+            element={
+              <ProtectedRoute>
+                <Notifications />
               </ProtectedRoute>
             }
           />

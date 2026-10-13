@@ -129,25 +129,31 @@ Set the API endpoint:
   ```bash
   npm run dev:frontend
   ```
-* **Start only the backend (Express on `http://localhost:5000`):**
+* **Start only the backend (Express on `http://localhost:5000` / `5001`):**
   ```bash
   npm run dev:backend
+  ```
+* **Start the background notification worker standalone:**
+  ```bash
+  npm run worker
   ```
 
 ---
 
 ## Testing & Quality Assurance
 
-Run the comprehensive test suite (37 automated tests across Auth, Medication, and Appointment scheduling):
+Run the comprehensive test suite (73 automated tests across Auth, Medication, Appointments, Profile, and Notifications):
 
 ```bash
-# Run all backend automated tests
+# Run all backend automated integration tests (all phases)
 npm run test
 
 # Run individual test suites
-npm run test:auth
-npm run test:medication
-npm run test:appointment
+npm run test:auth           # Phase 3: Auth & session tests (13 tests)
+npm run test:medication     # Phase 4: Medication & dose tests (11 tests)
+npm run test:appointment    # Phase 5: Doctor directory & appointments (13 tests)
+npm run test:profile        # Phase 6: Profile & health profile (16 tests)
+npm run test:notifications  # Phase 7: Notification delivery & worker (20 tests)
 ```
 
 Run code formatting and type checks:
@@ -180,12 +186,13 @@ npm run seed:health
 
 ---
 
-## Frontend and Backend Communication
+## Architecture & Documentation
+
+* **Authentication & Session Security:** [docs/auth.md](docs/auth.md)
+* **Notification Delivery & Background Jobs:** [docs/notifications.md](docs/notifications.md)
 
 * **API Base URL:** The frontend communicates with the backend via `frontend/src/services/api.ts` using `VITE_API_URL` (default: `http://localhost:5000/api`).
 * **Vite Proxy:** `frontend/vite.config.ts` includes a dev proxy for `/api` targeting `http://localhost:5000`.
 * **CORS & Credentials:** The Express backend configures `cors` with `credentials: true` allowing requests from `http://localhost:5173`.
 * **Cookie-Based Sessions:** The session token (`careconnect_token`) is stored in an `HttpOnly` cookie.
 * **Double-Submit CSRF:** All state-modifying requests (`POST`, `PUT`, `PATCH`, `DELETE`) include an `X-CSRF-Token` header matching the `careconnect_csrf_token` cookie.
-
-For authentication architecture details, see [docs/auth.md](docs/auth.md).

@@ -10,6 +10,11 @@ import {
   formatMinutes,
   isOverlapping,
 } from '../utils/availability.js';
+import {
+  scheduleAppointmentReminders,
+  rescheduleAppointmentReminders,
+  cancelAppointmentReminders,
+} from '../services/notificationScheduler.js';
 
 const DAYS_OF_WEEK = [
   'Sunday',
@@ -231,6 +236,9 @@ export const bookAppointment = async (
       }
       throw saveError;
     }
+
+    // Schedule appointment reminders (24h and 1h)
+    await scheduleAppointmentReminders(newAppointment);
 
     res.status(201).json(newAppointment);
   } catch (error) {
@@ -499,6 +507,9 @@ export const rescheduleAppointment = async (
       throw saveError;
     }
 
+    // Invalidate old reminder jobs and schedule for new time
+    await rescheduleAppointmentReminders(appointment);
+
     res.status(200).json({
       message: 'Appointment rescheduled successfully',
       appointment,
@@ -562,6 +573,9 @@ export const cancelAppointment = async (
     }
 
     await appointment.save();
+
+    // Cancel pending notification reminder jobs for this appointment
+    await cancelAppointmentReminders(appointment._id);
 
     res.status(200).json({
       message: 'Appointment cancelled successfully',

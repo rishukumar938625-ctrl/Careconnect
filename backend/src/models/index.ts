@@ -11,3 +11,5 @@ export { DoseRecord, type IDoseRecord, type DoseStatus } from './DoseRecord.js';
 export { Doctor, type IDoctor } from './Doctor.js';
 export { Appointment, type IAppointment } from './Appointment.js';
 export { User, User as UserProfile, type IUser } from './User.js';
+export { Notification, type INotification, type NotificationType, type NotificationChannel } from './Notification.js';
+export { NotificationJob, type INotificationJob, type JobType, type JobChannel, type JobStatus, type INotificationJobPayload } from './NotificationJob.js';

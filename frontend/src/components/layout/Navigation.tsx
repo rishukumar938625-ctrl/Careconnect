@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { NavLink, Link, useNavigate } from 'react-router-dom';
 import {
   Home,
@@ -9,16 +9,63 @@ import {
   Cross,
   LogOut,
   LogIn,
+  Bell,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { notificationApi } from '../../services/api';
 
 const navItems = [
   { label: 'Home', path: '/dashboard', icon: Home, ariaLabel: 'Dashboard' },
   { label: 'Health', path: '/health', icon: Heart, ariaLabel: 'Health Information' },
   { label: 'Meds', path: '/medications', icon: Pill, ariaLabel: 'Medications' },
   { label: 'Appointments', path: '/appointments', icon: Calendar, ariaLabel: 'Appointments' },
+  { label: 'Notifications', path: '/notifications', icon: Bell, ariaLabel: 'Notifications', showBadge: true },
   { label: 'Profile', path: '/profile', icon: User, ariaLabel: 'Profile' },
 ] as const;
+
+// Bottom nav items (keep 5 items for mobile bottom bar)
+const bottomNavItems = [
+  { label: 'Home', path: '/dashboard', icon: Home, ariaLabel: 'Dashboard' },
+  { label: 'Health', path: '/health', icon: Heart, ariaLabel: 'Health Information' },
+  { label: 'Meds', path: '/medications', icon: Pill, ariaLabel: 'Medications' },
+  { label: 'Appointments', path: '/appointments', icon: Calendar, ariaLabel: 'Appointments' },
+  { label: 'Profile', path: '/profile', icon: User, ariaLabel: 'Profile' },
+] as const;
+
+/**
+ * Custom hook to periodically poll unread notification count
+ */
+function useUnreadCount(user: unknown): number {
+  const [count, setCount] = useState<number>(0);
+
+  useEffect(() => {
+    if (!user) {
+      setCount(0);
+      return;
+    }
+
+    let isMounted = true;
+    const fetchCount = async () => {
+      try {
+        const res = await notificationApi.getUnreadCount();
+        if (isMounted) {
+          setCount(res.unreadCount);
+        }
+      } catch {
+        // Silently ignore if unauthenticated or network failure
+      }
+    };
+
+    fetchCount();
+    const interval = setInterval(fetchCount, 60000); // 60-second polling interval
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, [user]);
+
+  return count;
+}
 
 // ─── Bottom Navigation (Mobile) ───────────────────────────────────────────────
 
@@ -29,7 +76,7 @@ export const BottomNavigation: React.FC = () => {
       aria-label="Main navigation"
     >
       <ul className="flex items-stretch justify-around h-16" role="list">
-        {navItems.map(({ label, path, icon: Icon, ariaLabel }) => (
+        {bottomNavItems.map(({ label, path, icon: Icon, ariaLabel }) => (
           <li key={path} className="flex-1">
             <NavLink
               to={path}
@@ -76,6 +123,7 @@ export const BottomNavigation: React.FC = () => {
 export const Sidebar: React.FC = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const unreadCount = useUnreadCount(user);
 
   const handleLogout = async () => {
     await logout();
@@ -102,7 +150,10 @@ export const Sidebar: React.FC = () => {
       {/* Nav Links */}
       <nav className="flex-1 py-6 px-3 overflow-y-auto">
         <ul className="space-y-1" role="list">
-          {navItems.map(({ label, path, icon: Icon, ariaLabel }) => {
+          {navItems.map((item) => {
+            const { label, path, icon: Icon, ariaLabel } = item;
+            const hasBadge = 'showBadge' in item && item.showBadge && unreadCount > 0;
+
             return (
               <li key={path}>
                 <NavLink
@@ -110,7 +161,7 @@ export const Sidebar: React.FC = () => {
                   aria-label={ariaLabel}
                   className={({ isActive }) =>
                     [
-                      'flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150',
+                      'flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150',
                       'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500',
                       isActive
                         ? 'bg-primary-50 text-primary-700'
@@ -120,11 +171,18 @@ export const Sidebar: React.FC = () => {
                 >
                   {({ isActive }) => (
                     <>
-                      <Icon
-                        className={`h-5 w-5 flex-shrink-0 ${isActive ? 'text-primary-600' : 'text-text-muted'}`}
-                        aria-hidden="true"
-                      />
-                      <span>{label}</span>
+                      <div className="flex items-center gap-3">
+                        <Icon
+                          className={`h-5 w-5 flex-shrink-0 ${isActive ? 'text-primary-600' : 'text-text-muted'}`}
+                          aria-hidden="true"
+                        />
+                        <span>{label}</span>
+                      </div>
+                      {hasBadge && (
+                        <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-primary-100 text-primary-700">
+                          {unreadCount > 99 ? '99+' : unreadCount}
+                        </span>
+                      )}
                     </>
                   )}
                 </NavLink>
@@ -212,6 +270,7 @@ export const TopBar: React.FC<TopBarProps> = ({
   rightAction,
 }) => {
   const { user } = useAuth();
+  const unreadCount = useUnreadCount(user);
   const userInitial = user?.name ? user.name.charAt(0).toUpperCase() : 'U';
 
   return (
@@ -233,13 +292,28 @@ export const TopBar: React.FC<TopBarProps> = ({
           {rightAction ? (
             rightAction
           ) : user ? (
-            <Link
-              to="/profile"
-              aria-label="View your profile"
-              className="flex items-center justify-center w-7 h-7 rounded-lg bg-primary-600 text-white font-semibold text-xs"
-            >
-              {userInitial}
-            </Link>
+            <div className="flex items-center gap-2">
+              <Link
+                to="/notifications"
+                aria-label="View notifications"
+                className="relative p-1.5 rounded-lg text-slate-600 hover:text-primary-600 hover:bg-slate-100 transition-colors"
+              >
+                <Bell className="h-5 w-5" aria-hidden="true" />
+                {unreadCount > 0 && (
+                  <span className="absolute top-1 right-1 flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-primary-600"></span>
+                  </span>
+                )}
+              </Link>
+              <Link
+                to="/profile"
+                aria-label="View your profile"
+                className="flex items-center justify-center w-7 h-7 rounded-lg bg-primary-600 text-white font-semibold text-xs"
+              >
+                {userInitial}
+              </Link>
+            </div>
           ) : (
             <Link
               to="/login"

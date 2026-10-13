@@ -23,6 +23,10 @@ export interface IUser extends Document {
     appointmentAlerts: boolean;
     healthTips: boolean;
     emailUpdates: boolean;
+    quietHoursEnabled: boolean;
+    quietHoursStart: string;
+    quietHoursEnd: string;
+    timeZone: string;
   };
   bookmarkedConditions: string[];
   bookmarkedMedicines: string[];
@@ -53,6 +57,10 @@ export interface ISafeUser {
     appointmentAlerts: boolean;
     healthTips: boolean;
     emailUpdates: boolean;
+    quietHoursEnabled: boolean;
+    quietHoursStart: string;
+    quietHoursEnd: string;
+    timeZone: string;
   };
   bookmarkedConditions: string[];
   bookmarkedMedicines: string[];
@@ -124,6 +132,10 @@ const UserSchema = new Schema<IUser>(
       appointmentAlerts: { type: Boolean, default: true },
       healthTips: { type: Boolean, default: false },
       emailUpdates: { type: Boolean, default: true },
+      quietHoursEnabled: { type: Boolean, default: false },
+      quietHoursStart: { type: String, default: '22:00' },
+      quietHoursEnd: { type: String, default: '07:00' },
+      timeZone: { type: String, default: 'UTC' },
     },
     bookmarkedConditions: {
       type: [String],
@@ -166,6 +178,17 @@ export function toSafeUser(user: any): ISafeUser {
     ...raw,
     id: idStr,
     _id: idStr,
+    notificationPreferences: {
+      medicationReminders: true,
+      appointmentAlerts: true,
+      healthTips: false,
+      emailUpdates: true,
+      quietHoursEnabled: false,
+      quietHoursStart: '22:00',
+      quietHoursEnd: '07:00',
+      timeZone: 'UTC',
+      ...(raw.notificationPreferences || {}),
+    },
   } as ISafeUser;
 }
 
