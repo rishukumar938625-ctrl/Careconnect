@@ -1,0 +1,121 @@
+# render.yaml — CareConnect Render.com Deployment Configuration
+#
+# Defines three services:
+#   1. careconnect-api   — Express/Node.js backend (Web Service)
+#   2. careconnect-web   — React/Vite frontend   (Static Site)
+#   3. careconnect-worker— Notification worker   (Background Worker)
+#
+# Usage:
+#   1. Fork/push this repository to GitHub.
+#   2. Connect the repository to Render (https://dashboard.render.com).
+#   3. Render auto-detects render.yaml and creates all three services.
+#   4. Set SECRET environment variables in the Render dashboard
+#      (MONGODB_URI, JWT_SECRET) — do NOT hard-code them here.
+#
+# Docs: https://render.com/docs/blueprint-spec
+
+services:
+  # ─── Backend API ─────────────────────────────────────────────────────────────
+  - type: web
+    name: careconnect-api
+    runtime: node
+    region: oregon                   # choose the region closest to your users
+    plan: free                       # upgrade to starter/standard for production SLAs
+    rootDir: backend
+    buildCommand: npm ci && npm run build
+    startCommand: node dist/index.js
+    healthCheckPath: /api/health
+    autoDeploy: true                 # auto-deploy on every push to main
+
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000                 # Render assigns a random port; 10000 is the internal default
+      - key: TRUST_PROXY
+        value: "true"               # Render sits behind a proxy; required for correct IP/HTTPS detection
+      - key: WORKER_ENABLED
+        value: "false"              # Worker runs as a separate service below
+      - key: EMAIL_PROVIDER
+        value: simulated             # change to smtp when you have SMTP credentials
+
+      # ── Secrets: set these in the Render Dashboard, NOT here ──────────────
+      - key: MONGODB_URI
+        sync: false                  # prompts for value in Render dashboard
+      - key: JWT_SECRET
+        sync: false
+      - key: FRONTEND_URL
+        sync: false                  # e.g. https://careconnect.onrender.com (your static site URL)
+      - key: COOKIE_SAME_SITE
+        value: strict
+      - key: COOKIE_SECURE
+        value: "true"
+
+  # ─── Frontend Static Site ────────────────────────────────────────────────────
+  - type: web
+    name: careconnect-web
+    runtime: static
+    region: oregon
+    plan: free
+    rootDir: frontend
+    buildCommand: npm ci && npm run build
+    staticPublishPath: ./dist
+    autoDeploy: true
+
+    routes:
+      # SPA fallback — all non-asset paths serve index.html so React Router works
+      - type: rewrite
+        source: /*
+        destination: /index.html
+
+    envVars:
+      # Set this to the deployed API service URL (careconnect-api's Render URL)
+      - key: VITE_API_URL
+        sync: false                  # e.g. https://careconnect-api.onrender.com/api
+
+    headers:
+      - path: /*
+        name: X-Frame-Options
+        value: DENY
+      - path: /*
+        name: X-Content-Type-Options
+        value: nosniff
+      - path: /assets/*
+        name: Cache-Control
+        value: "public, max-age=31536000, immutable"
+      - path: /*.html
+        name: Cache-Control
+        value: "no-cache, no-store, must-revalidate"
+
+  # ─── Background Notification Worker ──────────────────────────────────────────
+  - type: worker
+    name: careconnect-worker
+    runtime: node
+    region: oregon
+    plan: free
+    rootDir: backend
+    buildCommand: npm ci && npm run build
+    startCommand: node dist/worker.js
+    autoDeploy: true
+
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: WORKER_ENABLED
+        value: "true"
+      - key: WORKER_POLL_INTERVAL_MS
+        value: "5000"
+      - key: WORKER_BATCH_SIZE
+        value: "10"
+      - key: WORKER_LEASE_DURATION_MS
+        value: "60000"
+      - key: EMAIL_PROVIDER
+        value: simulated
+
+      # Secrets (set in Render dashboard)
+      - key: MONGODB_URI
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: FROM_EMAIL
+        value: notifications@careconnect.app
