@@ -272,7 +272,9 @@ export const Notifications: React.FC = () => {
                         <span
                           className="w-2 h-2 rounded-full bg-primary-600 flex-shrink-0"
                           title="Unread notification"
-                        />
+                        >
+                          <span className="sr-only">Unread notification</span>
+                        </span>
                       )}
                     </div>
 
@@ -303,7 +305,7 @@ export const Notifications: React.FC = () => {
                     <button
                       onClick={() => handleMarkAsRead(item.id || item._id)}
                       title="Mark as read"
-                      aria-label="Mark notification as read"
+                      aria-label={`Mark "${item.title}" as read`}
                       className="absolute top-4 right-4 p-1.5 rounded-lg text-slate-400 hover:text-primary-600 hover:bg-primary-50 transition-colors"
                     >
                       <Check className="h-4 w-4" aria-hidden="true" />

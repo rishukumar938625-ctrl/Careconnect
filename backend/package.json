@@ -12,12 +12,14 @@
     "seed:health": "tsx src/seed/seedHealthData.ts",
     "seed:doctors": "tsx src/seed/seedDoctors.ts",
     "worker": "tsx src/worker.ts",
-    "test": "tsx src/tests/auth.test.ts && tsx src/tests/medication.test.ts && tsx src/tests/appointment.test.ts && tsx src/tests/phase6.test.ts && tsx src/tests/phase7.test.ts",
+    "test": "tsx src/tests/auth.test.ts && tsx src/tests/medication.test.ts && tsx src/tests/appointment.test.ts && tsx src/tests/phase6.test.ts && tsx src/tests/phase7.test.ts && tsx src/tests/phase8.test.ts && tsx src/tests/phase9.test.ts",
     "test:auth": "tsx src/tests/auth.test.ts",
     "test:medication": "tsx src/tests/medication.test.ts",
     "test:appointment": "tsx src/tests/appointment.test.ts",
     "test:profile": "tsx src/tests/phase6.test.ts",
-    "test:notifications": "tsx src/tests/phase7.test.ts"
+    "test:notifications": "tsx src/tests/phase7.test.ts",
+    "test:security": "tsx src/tests/phase8.test.ts",
+    "test:qa": "tsx src/tests/phase9.test.ts"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",
@@ -26,6 +28,7 @@
     "dotenv": "^16.4.5",
     "express": "^4.19.2",
     "express-rate-limit": "^8.7.1",
+    "helmet": "^8.3.0",
     "jsonwebtoken": "^9.0.3",
     "mongoose": "^8.3.1"
   },

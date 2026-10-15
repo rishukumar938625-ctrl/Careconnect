@@ -17,6 +17,7 @@ export const LoadingState: React.FC<LoadingStateProps> = ({
     <div
       className={`flex flex-col items-center justify-center py-16 gap-4 ${className}`}
       role="status"
+      aria-live="polite"
       aria-label={message}
     >
       <div className="rounded-full bg-primary-50 p-4">
@@ -93,6 +94,7 @@ export const ErrorState: React.FC<ErrorStateProps> = ({
     <div
       className={`flex flex-col items-center justify-center py-16 px-6 text-center gap-4 ${className}`}
       role="alert"
+      aria-live="assertive"
     >
       <div className="rounded-full bg-red-50 p-5 text-danger">
         <AlertCircle className="h-8 w-8" aria-hidden="true" />

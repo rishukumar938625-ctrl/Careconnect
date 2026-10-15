@@ -169,6 +169,7 @@ export const Select: React.FC<SelectProps> = ({
 }) => {
   const inputId = id ?? `select-${label.toLowerCase().replace(/\s+/g, '-')}`;
   const errorId = `${inputId}-error`;
+  const helpId = `${inputId}-help`;
 
   return (
     <div className={`flex flex-col gap-1.5 ${className}`}>
@@ -185,7 +186,11 @@ export const Select: React.FC<SelectProps> = ({
       </label>
       <select
         id={inputId}
-        aria-describedby={error ? errorId : undefined}
+        aria-describedby={
+          [error ? errorId : '', helpText ? helpId : '']
+            .filter(Boolean)
+            .join(' ') || undefined
+        }
         aria-invalid={error ? 'true' : undefined}
         className={[
           'block w-full rounded-xl border px-4 py-3 text-sm text-text-primary',
@@ -212,7 +217,7 @@ export const Select: React.FC<SelectProps> = ({
         </p>
       )}
       {helpText && !error && (
-        <p className="text-xs text-text-muted">{helpText}</p>
+        <p id={helpId} className="text-xs text-text-muted">{helpText}</p>
       )}
     </div>
   );

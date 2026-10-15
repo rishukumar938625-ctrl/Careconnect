@@ -295,7 +295,7 @@ export const TopBar: React.FC<TopBarProps> = ({
             <div className="flex items-center gap-2">
               <Link
                 to="/notifications"
-                aria-label="View notifications"
+                aria-label={unreadCount > 0 ? `View notifications (${unreadCount} unread)` : 'View notifications'}
                 className="relative p-1.5 rounded-lg text-slate-600 hover:text-primary-600 hover:bg-slate-100 transition-colors"
               >
                 <Bell className="h-5 w-5" aria-hidden="true" />

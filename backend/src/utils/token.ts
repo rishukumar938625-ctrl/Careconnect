@@ -15,6 +15,10 @@ export function getJwtSecret(): string {
     }
     return 'careconnect-development-fallback-secret-key-3.0';
   }
+  // Enforce minimum cryptographic key length in production to prevent weak secrets
+  if (process.env.NODE_ENV === 'production' && secret.length < 32) {
+    throw new Error('CRITICAL SECURITY ERROR: JWT_SECRET must be at least 32 characters long in production.');
+  }
   return secret;
 }
 

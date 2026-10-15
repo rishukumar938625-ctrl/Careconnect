@@ -46,6 +46,18 @@ export const errorHandler = (
   // Handle Mongoose validation errors
   if (err.name === 'ValidationError') {
     statusCode = 400;
+    // In production, strip internal field path details to prevent model enumeration
+    if (isProduction) {
+      message = 'Validation failed: one or more fields are invalid.';
+    }
+  }
+
+  // Handle MongoDB duplicate key errors (E11000) - strip internal collection/index details
+  if ((err as any).code === 11000) {
+    statusCode = 409;
+    message = isProduction
+      ? 'A record with this value already exists.'
+      : message; // keep detailed message in dev
   }
 
   // Sanitize the message to ensure no connection strings or secrets leak

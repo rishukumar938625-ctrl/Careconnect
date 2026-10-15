@@ -58,6 +58,7 @@ export const Button: React.FC<ButtonProps> = ({
         .filter(Boolean)
         .join(' ')}
       disabled={isDisabled}
+      aria-busy={loading ? 'true' : undefined}
       {...props}
     >
       {loading ? (

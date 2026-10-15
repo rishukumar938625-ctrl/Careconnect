@@ -142,24 +142,32 @@ Set the API endpoint:
 
 ## Testing & Quality Assurance
 
-Run the comprehensive test suite (73 automated tests across Auth, Medication, Appointments, Profile, and Notifications):
+CareConnect features a certified test suite with **165 automated tests** passing across frontend and backend workspaces (133 backend integration tests + 32 frontend unit and component tests):
 
 ```bash
-# Run all backend automated integration tests (all phases)
+# Run all automated tests across both frontend and backend
+npm run test:all
+
+# Run all backend automated integration tests (133 tests)
 npm run test
 
-# Run individual test suites
+# Run all frontend component & unit tests via Vitest (32 tests)
+npm run test:frontend
+
+# Run individual backend test suites
 npm run test:auth           # Phase 3: Auth & session tests (13 tests)
 npm run test:medication     # Phase 4: Medication & dose tests (11 tests)
 npm run test:appointment    # Phase 5: Doctor directory & appointments (13 tests)
 npm run test:profile        # Phase 6: Profile & health profile (16 tests)
 npm run test:notifications  # Phase 7: Notification delivery & worker (20 tests)
+npm run test:security       # Phase 8: Security & privacy hardening (36 tests)
+npm run test:qa             # Phase 9: QA, reliability & E2E journeys (24 tests)
 ```
 
 Run code formatting and type checks:
 
 ```bash
-# Lint frontend code
+# Lint frontend code (zero warnings policy)
 npm run lint
 
 # Build both applications for production
@@ -188,11 +196,16 @@ npm run seed:health
 
 ## Architecture & Documentation
 
+* **Release Readiness & QA Specification (Phase 9):** [docs/release-readiness.md](docs/release-readiness.md)
 * **Authentication & Session Security:** [docs/auth.md](docs/auth.md)
 * **Notification Delivery & Background Jobs:** [docs/notifications.md](docs/notifications.md)
+* **Security Architecture (Phase 8):** [docs/security.md](docs/security.md)
 
 * **API Base URL:** The frontend communicates with the backend via `frontend/src/services/api.ts` using `VITE_API_URL` (default: `http://localhost:5000/api`).
 * **Vite Proxy:** `frontend/vite.config.ts` includes a dev proxy for `/api` targeting `http://localhost:5000`.
-* **CORS & Credentials:** The Express backend configures `cors` with `credentials: true` allowing requests from `http://localhost:5173`.
+* **CORS & Credentials:** The Express backend configures `cors` with `credentials: true` allowing requests from `http://localhost:5173`. In production, only `FRONTEND_URL` is permitted.
 * **Cookie-Based Sessions:** The session token (`careconnect_token`) is stored in an `HttpOnly` cookie.
 * **Double-Submit CSRF:** All state-modifying requests (`POST`, `PUT`, `PATCH`, `DELETE`) include an `X-CSRF-Token` header matching the `careconnect_csrf_token` cookie.
+* **HTTP Security Headers:** Helmet middleware applies `X-Content-Type-Options`, `X-Frame-Options`, HSTS (production), `Referrer-Policy`, and CSP (production).
+* **NoSQL Injection Prevention:** Custom `sanitizeNoSql` middleware strips MongoDB operator keys (`$gt`, `$where`, etc.) from all incoming requests.
+* **Rate Limiting:** Tiered limiters for auth endpoints (20/15min), mutations (200/15min), search (60/min), and global fallback (300/min).

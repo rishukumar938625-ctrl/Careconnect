@@ -1,5 +1,6 @@
 import express from 'express';
 import cors from 'cors';
+import helmet from 'helmet';
 import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -7,6 +8,8 @@ import { connectDB, disconnectDB } from './config/db.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import { notFoundHandler } from './middleware/notFoundHandler.js';
 import { sanitizeError } from './utils/sanitize.js';
+import { sanitizeNoSql } from './middleware/sanitizeNoSql.js';
+import { globalApiLimiter } from './middleware/rateLimiter.js';
 
 import cookieParser from 'cookie-parser';
 import healthRoutes from './routes/healthRoutes.js';
@@ -36,15 +39,59 @@ const NODE_ENV = process.env.NODE_ENV || 'development';
 
 // ─── Security & Parsing Middleware ──────────────────────────────────────────
 
-// Configure CORS for local frontend origin
+// HTTP security headers via Helmet:
+// Sets X-Content-Type-Options, X-Frame-Options, HSTS (prod), X-XSS-Protection,
+// Referrer-Policy, Permissions-Policy, Content-Security-Policy, etc.
+app.use(
+  helmet({
+    // Only enable HSTS in production (requires HTTPS)
+    hsts: NODE_ENV === 'production'
+      ? { maxAge: 31536000, includeSubDomains: true, preload: true }
+      : false,
+    // Relax CSP in development to allow Vite HMR and inline scripts
+    contentSecurityPolicy:
+      NODE_ENV === 'production'
+        ? {
+            directives: {
+              defaultSrc: ["'self'"],
+              scriptSrc: ["'self'"],
+              styleSrc: ["'self'", "'unsafe-inline'"],
+              imgSrc: ["'self'", 'data:', 'https:'],
+              connectSrc: ["'self'"],
+              fontSrc: ["'self'", 'https:'],
+              objectSrc: ["'none'"],
+              frameSrc: ["'none'"],
+              baseUri: ["'self'"],
+              formAction: ["'self'"],
+              frameAncestors: ["'none'"],
+              upgradeInsecureRequests: NODE_ENV === 'production' ? [] : null,
+            },
+          }
+        : false,
+    // Always: noSniff, frameguard (SAMEORIGIN → 'deny' in prod), xssFilter, ieNoOpen, hidePoweredBy
+    xFrameOptions: { action: NODE_ENV === 'production' ? 'deny' : 'sameorigin' },
+    referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
+  })
+);
+
+// Global API rate limiter — applied before any route, prevents DoS flooding
+app.use('/api', globalApiLimiter);
+
+// Configure CORS
 const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
-const allowedOrigins = [
-  frontendUrl,
+
+// In production, only the configured FRONTEND_URL is allowed.
+// In development, local origins are permitted for convenience.
+const devOrigins = [
   'http://localhost:5173',
   'http://127.0.0.1:5173',
   'http://localhost:3000',
   'http://127.0.0.1:3000',
 ];
+const allowedOrigins: string[] =
+  NODE_ENV === 'production'
+    ? [frontendUrl]
+    : [frontendUrl, ...devOrigins];
 
 app.use(
   cors({
@@ -68,6 +115,10 @@ app.use(cookieParser());
 // Safe JSON and URL-encoded request body parsing with sensible size limits (1mb)
 app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: true, limit: '1mb' }));
+
+// NoSQL injection prevention: strip MongoDB operator keys ($gt, $ne, $regex, $where, etc.)
+// from body, query params, and route params before they reach any route handler.
+app.use(sanitizeNoSql);
 
 // ─── API Routes ─────────────────────────────────────────────────────────────
 

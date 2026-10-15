@@ -9,6 +9,7 @@ import {
 import { getAdherenceStats } from '../controllers/doseController.js';
 import { authenticate } from '../middleware/authMiddleware.js';
 import { validateCsrf } from '../middleware/csrfMiddleware.js';
+import { mutationLimiter } from '../middleware/rateLimiter.js';
 
 const router = Router();
 
@@ -17,9 +18,9 @@ router.use(authenticate);
 
 router.get('/stats/adherence', getAdherenceStats);
 router.get('/', getMedications);
-router.post('/', validateCsrf, createMedication);
+router.post('/', mutationLimiter, validateCsrf, createMedication);
 router.get('/:id', getMedicationById);
-router.patch('/:id', validateCsrf, updateMedication);
-router.delete('/:id', validateCsrf, deleteMedication);
+router.patch('/:id', mutationLimiter, validateCsrf, updateMedication);
+router.delete('/:id', mutationLimiter, validateCsrf, deleteMedication);
 
 export default router;
