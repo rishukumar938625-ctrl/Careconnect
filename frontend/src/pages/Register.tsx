@@ -4,6 +4,7 @@ import { Mail, Lock, User, Cross, AlertCircle, ArrowRight, CheckCircle2 } from '
 import { useAuth } from '../context/AuthContext';
 import { Input } from '../components/ui/Input';
 import { Button } from '../components/ui/Button';
+import { ApiError } from '../services/api';
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -53,7 +54,24 @@ export const Register: React.FC = () => {
       });
       navigate('/dashboard', { replace: true });
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Registration failed. Please check your information and try again.';
+      let message: string;
+      if (err instanceof ApiError) {
+        if (err.status === 409) {
+          message = 'An account with this email address already exists. Please sign in or use a different email.';
+        } else if (err.status === 429) {
+          message = 'Too many registration attempts. Please wait a few minutes and try again.';
+        } else if (err.status === 400) {
+          message = err.message || 'Please check your information and try again.';
+        } else if (err.status >= 500) {
+          message = 'The server encountered an error. Please try again in a moment.';
+        } else {
+          message = err.message || 'Registration failed. Please try again.';
+        }
+      } else if (err instanceof Error) {
+        message = err.message;
+      } else {
+        message = 'Registration failed. Please check your information and try again.';
+      }
       setError(message);
     } finally {
       setIsSubmitting(false);

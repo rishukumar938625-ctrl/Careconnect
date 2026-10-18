@@ -14,7 +14,11 @@ export default defineConfig({
     port: 5173,
     proxy: {
       '/api': {
-        target: 'http://localhost:5000',
+        // The backend starts on 5000 but falls back to 5001 when macOS AirPlay
+        // Receiver occupies port 5000. Keep this in sync with backend/.env PORT,
+        // or set VITE_BACKEND_PORT at the terminal to override without editing:
+        //   VITE_BACKEND_PORT=5000 npm run dev
+        target: `http://localhost:${process.env.VITE_BACKEND_PORT || 5001}`,
         changeOrigin: true,
       },
     },

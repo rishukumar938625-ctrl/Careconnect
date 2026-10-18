@@ -16,7 +16,7 @@ import type {
   AppNotification,
 } from '../types';
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+const API_BASE = import.meta.env.VITE_API_URL || '/api';
 
 let activeCsrfToken: string | null = null;
 
@@ -29,7 +29,25 @@ export const getCsrfToken = (): string | null => {
 };
 
 /**
- * Helper to execute fetch requests with error handling, credentials, and CSRF token
+ * Structured API error that carries the HTTP status code so callers can
+ * distinguish 409 Conflict from 429 Too Many Requests, etc.
+ */
+export class ApiError extends Error {
+  constructor(
+    public readonly status: number,
+    message: string
+  ) {
+    super(message);
+    this.name = 'ApiError';
+  }
+}
+
+/**
+ * Helper to execute fetch requests with error handling, credentials, and CSRF token.
+ *
+ * Throws:
+ *   - ApiError(status, message) for HTTP 4xx/5xx responses
+ *   - Error('Unable to connect to the server…') for network failures (TypeError)
  */
 async function fetchJson<T>(url: string, options?: RequestInit): Promise<T> {
   const headers: Record<string, string> = {
@@ -41,18 +59,38 @@ async function fetchJson<T>(url: string, options?: RequestInit): Promise<T> {
     headers['X-CSRF-Token'] = activeCsrfToken;
   }
 
-  const response = await fetch(`${API_BASE}${url}`, {
-    credentials: 'include',
-    ...options,
-    headers,
-  });
-
-  if (!response.ok) {
-    const errorBody = await response.json().catch(() => ({}));
-    throw new Error(errorBody.message || errorBody.error || `Request failed with status ${response.status}`);
+  let response: Response;
+  try {
+    response = await fetch(`${API_BASE}${url}`, {
+      credentials: 'include',
+      ...options,
+      headers,
+    });
+  } catch {
+    // TypeError: Failed to fetch — backend is unreachable (wrong port, CORS
+    // preflight blocked, server down, etc.)
+    throw new Error(
+      'Unable to connect to the server. Please check your internet connection and try again.'
+    );
   }
 
-  return response.json();
+  if (!response.ok) {
+    // Try to parse a JSON body for a user-friendly message.
+    // Guard against HTML error pages returned by proxies (non-JSON).
+    const contentType = response.headers.get('content-type') || '';
+    let message: string;
+    if (contentType.includes('application/json')) {
+      const body = await response.json().catch(() => ({}) as Record<string, string>);
+      message = (body as Record<string, string>).message ||
+                (body as Record<string, string>).error ||
+                `Request failed with status ${response.status}`;
+    } else {
+      message = `Request failed with status ${response.status}`;
+    }
+    throw new ApiError(response.status, message);
+  }
+
+  return response.json() as Promise<T>;
 }
 
 // ─── Health Check Service (Phase 1.5) ─────────────────────────────────────────
