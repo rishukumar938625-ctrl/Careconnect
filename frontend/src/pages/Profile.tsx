@@ -28,7 +28,7 @@ import { Card } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
-import { userApi } from '../services/api';
+import { userApi, ApiError } from '../services/api';
 import type { UserNotificationPreferences } from '../types';
 
 const COMMON_TIMEZONES = [
@@ -55,6 +55,7 @@ export const Profile: React.FC = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [isSessionExpired, setIsSessionExpired] = useState(false);
 
   const [editName, setEditName] = useState(user?.name || '');
   const [editPhone, setEditPhone] = useState(user?.phone || '');
@@ -66,6 +67,7 @@ export const Profile: React.FC = () => {
   const [isSavingEmergency, setIsSavingEmergency] = useState(false);
   const [emergencySuccess, setEmergencySuccess] = useState(false);
   const [emergencyError, setEmergencyError] = useState<string | null>(null);
+  const [isEmergencySessionExpired, setIsEmergencySessionExpired] = useState(false);
 
   const [emergencyName, setEmergencyName] = useState(user?.emergencyContact?.name || '');
   const [emergencyPhone, setEmergencyPhone] = useState(user?.emergencyContact?.phone || '');
@@ -118,6 +120,7 @@ export const Profile: React.FC = () => {
       setEditBloodGroup(user.bloodGroup || '');
     }
     setSaveError(null);
+    setIsSessionExpired(false);
     setSaveSuccess(false);
     setIsEditModalOpen(true);
   };
@@ -129,20 +132,33 @@ export const Profile: React.FC = () => {
       setEmergencyRel(user.emergencyContact?.relationship || '');
     }
     setEmergencyError(null);
+    setIsEmergencySessionExpired(false);
     setEmergencySuccess(false);
     setIsEmergencyModalOpen(true);
   };
 
   const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user) return;
+    if (!user || isSaving) return;
 
     setSaveError(null);
+    setIsSessionExpired(false);
+
+    const trimmedName = editName.trim();
+    if (!trimmedName || trimmedName.length < 2) {
+      setSaveError('Full name must be at least 2 characters long.');
+      return;
+    }
+    if (trimmedName.length > 100) {
+      setSaveError('Full name cannot exceed 100 characters.');
+      return;
+    }
+
     setIsSaving(true);
 
     try {
       await updateProfile({
-        name: editName.trim() || user.name,
+        name: trimmedName,
         phone: editPhone.trim(),
         dateOfBirth: editDateOfBirth.trim(),
         bloodGroup: editBloodGroup.trim(),
@@ -154,8 +170,24 @@ export const Profile: React.FC = () => {
         setSaveSuccess(false);
       }, 700);
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Failed to update profile.';
-      setSaveError(message);
+      if (err instanceof ApiError) {
+        if (err.status === 401) {
+          setIsSessionExpired(true);
+          setSaveError('Your session has expired or is invalid. Please sign in again to save your profile changes.');
+        } else if (err.status === 403) {
+          setSaveError('Access denied: You do not have permission to modify this profile.');
+        } else if (err.status === 400) {
+          setSaveError(err.message || 'Invalid profile information. Please check your entries.');
+        } else if (err.status >= 500) {
+          setSaveError('An unexpected server error occurred. Please try again shortly.');
+        } else {
+          setSaveError(err.message || 'Failed to update profile.');
+        }
+      } else if (err instanceof Error) {
+        setSaveError(err.message);
+      } else {
+        setSaveError('Failed to update profile. Please check your connection and try again.');
+      }
     } finally {
       setIsSaving(false);
     }
@@ -163,17 +195,36 @@ export const Profile: React.FC = () => {
 
   const handleSaveEmergencyContact = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user) return;
+    if (!user || isSavingEmergency) return;
 
     setEmergencyError(null);
+    setIsEmergencySessionExpired(false);
+
+    const trimmedName = emergencyName.trim();
+    const trimmedPhone = emergencyPhone.trim();
+    const trimmedRel = emergencyRel.trim();
+
+    if (!trimmedName || trimmedName.length < 2) {
+      setEmergencyError('Contact name must be at least 2 characters long.');
+      return;
+    }
+    if (!trimmedRel) {
+      setEmergencyError('Relationship is required.');
+      return;
+    }
+    if (!trimmedPhone) {
+      setEmergencyError('Phone number is required.');
+      return;
+    }
+
     setIsSavingEmergency(true);
 
     try {
       await updateProfile({
         emergencyContact: {
-          name: emergencyName.trim(),
-          phone: emergencyPhone.trim(),
-          relationship: emergencyRel.trim(),
+          name: trimmedName,
+          phone: trimmedPhone,
+          relationship: trimmedRel,
         },
       });
 
@@ -183,8 +234,24 @@ export const Profile: React.FC = () => {
         setEmergencySuccess(false);
       }, 700);
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Failed to update emergency contact.';
-      setEmergencyError(message);
+      if (err instanceof ApiError) {
+        if (err.status === 401) {
+          setIsEmergencySessionExpired(true);
+          setEmergencyError('Your session has expired or is invalid. Please sign in again to save your emergency contact.');
+        } else if (err.status === 403) {
+          setEmergencyError('Access denied: You do not have permission to modify emergency contact.');
+        } else if (err.status === 400) {
+          setEmergencyError(err.message || 'Invalid emergency contact details.');
+        } else if (err.status >= 500) {
+          setEmergencyError('An unexpected server error occurred. Please try again shortly.');
+        } else {
+          setEmergencyError(err.message || 'Failed to update emergency contact.');
+        }
+      } else if (err instanceof Error) {
+        setEmergencyError(err.message);
+      } else {
+        setEmergencyError('Failed to update emergency contact. Please check your connection and try again.');
+      }
     } finally {
       setIsSavingEmergency(false);
     }
@@ -865,8 +932,20 @@ export const Profile: React.FC = () => {
             </div>
 
             {saveError && (
-              <div role="alert" className="mb-4 p-3 rounded-xl bg-red-50 border border-red-100 text-red-700 text-xs">
-                {saveError}
+              <div role="alert" className="mb-4 p-3.5 rounded-xl bg-red-50 border border-red-100 text-red-700 text-xs flex flex-col gap-2">
+                <div className="flex items-start gap-2">
+                  <AlertCircle className="h-4 w-4 text-red-600 flex-shrink-0 mt-0.5" />
+                  <span>{saveError}</span>
+                </div>
+                {isSessionExpired && (
+                  <Link
+                    to="/login"
+                    state={{ from: '/profile' }}
+                    className="inline-flex items-center gap-1 font-semibold text-primary-700 hover:text-primary-800 underline mt-0.5"
+                  >
+                    Sign in again to continue
+                  </Link>
+                )}
               </div>
             )}
 
@@ -958,8 +1037,20 @@ export const Profile: React.FC = () => {
             </div>
 
             {emergencyError && (
-              <div role="alert" className="mb-4 p-3 rounded-xl bg-red-50 border border-red-100 text-red-700 text-xs">
-                {emergencyError}
+              <div role="alert" className="mb-4 p-3.5 rounded-xl bg-red-50 border border-red-100 text-red-700 text-xs flex flex-col gap-2">
+                <div className="flex items-start gap-2">
+                  <AlertCircle className="h-4 w-4 text-red-600 flex-shrink-0 mt-0.5" />
+                  <span>{emergencyError}</span>
+                </div>
+                {isEmergencySessionExpired && (
+                  <Link
+                    to="/login"
+                    state={{ from: '/profile' }}
+                    className="inline-flex items-center gap-1 font-semibold text-primary-700 hover:text-primary-800 underline mt-0.5"
+                  >
+                    Sign in again to continue
+                  </Link>
+                )}
               </div>
             )}
 

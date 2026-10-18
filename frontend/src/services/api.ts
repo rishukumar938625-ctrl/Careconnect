@@ -25,7 +25,16 @@ export const setCsrfToken = (token: string | null): void => {
 };
 
 export const getCsrfToken = (): string | null => {
-  return activeCsrfToken;
+  if (activeCsrfToken) return activeCsrfToken;
+  if (typeof document !== 'undefined' && document.cookie) {
+    const match = document.cookie.match(/(?:^|;\s*)careconnect_csrf_token=([^;]*)/);
+    if (match) {
+      const token = decodeURIComponent(match[1]);
+      activeCsrfToken = token;
+      return token;
+    }
+  }
+  return null;
 };
 
 /**
@@ -55,8 +64,9 @@ async function fetchJson<T>(url: string, options?: RequestInit): Promise<T> {
     ...(options?.headers as Record<string, string>),
   };
 
-  if (activeCsrfToken && options?.method && ['POST', 'PUT', 'PATCH', 'DELETE'].includes(options.method.toUpperCase())) {
-    headers['X-CSRF-Token'] = activeCsrfToken;
+  const csrfToken = getCsrfToken();
+  if (csrfToken && options?.method && ['POST', 'PUT', 'PATCH', 'DELETE'].includes(options.method.toUpperCase())) {
+    headers['X-CSRF-Token'] = csrfToken;
   }
 
   let response: Response;

@@ -8,10 +8,17 @@ const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 const getCookieOptions = () => {
   const isProd = process.env.NODE_ENV === 'production';
+  const sameSite = (process.env.COOKIE_SAME_SITE?.toLowerCase() || (isProd ? 'strict' : 'lax')) as 'strict' | 'lax' | 'none';
+  const secure = process.env.COOKIE_SECURE !== undefined
+    ? process.env.COOKIE_SECURE === 'true'
+    : isProd || sameSite === 'none';
+  const domain = process.env.COOKIE_DOMAIN || undefined;
+
   return {
     httpOnly: true,
-    secure: isProd,
-    sameSite: (isProd ? 'strict' : 'lax') as 'strict' | 'lax',
+    secure,
+    sameSite,
+    ...(domain ? { domain } : {}),
     maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
     path: '/',
   };
@@ -19,10 +26,17 @@ const getCookieOptions = () => {
 
 const getCsrfCookieOptions = () => {
   const isProd = process.env.NODE_ENV === 'production';
+  const sameSite = (process.env.COOKIE_SAME_SITE?.toLowerCase() || (isProd ? 'strict' : 'lax')) as 'strict' | 'lax' | 'none';
+  const secure = process.env.COOKIE_SECURE !== undefined
+    ? process.env.COOKIE_SECURE === 'true'
+    : isProd || sameSite === 'none';
+  const domain = process.env.COOKIE_DOMAIN || undefined;
+
   return {
     httpOnly: false, // Available to client script to attach in X-CSRF-Token header
-    secure: isProd,
-    sameSite: (isProd ? 'strict' : 'lax') as 'strict' | 'lax',
+    secure,
+    sameSite,
+    ...(domain ? { domain } : {}),
     maxAge: 7 * 24 * 60 * 60 * 1000,
     path: '/',
   };
@@ -231,16 +245,20 @@ export const logout = async (
   _req: Request,
   res: Response
 ): Promise<void> => {
-  const isProd = process.env.NODE_ENV === 'production';
+  const cookieOpts = getCookieOptions();
+  const csrfOpts = getCsrfCookieOptions();
+
   res.clearCookie('careconnect_token', {
-    httpOnly: true,
-    secure: isProd,
-    sameSite: isProd ? 'strict' : 'lax',
+    httpOnly: cookieOpts.httpOnly,
+    secure: cookieOpts.secure,
+    sameSite: cookieOpts.sameSite,
+    ...(cookieOpts.domain ? { domain: cookieOpts.domain } : {}),
     path: '/',
   });
   res.clearCookie('careconnect_csrf_token', {
-    secure: isProd,
-    sameSite: isProd ? 'strict' : 'lax',
+    secure: csrfOpts.secure,
+    sameSite: csrfOpts.sameSite,
+    ...(csrfOpts.domain ? { domain: csrfOpts.domain } : {}),
     path: '/',
   });
 

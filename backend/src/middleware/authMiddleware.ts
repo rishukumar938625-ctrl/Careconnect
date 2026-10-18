@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
+import mongoose from 'mongoose';
 import { verifyToken } from '../utils/token.js';
 import { User, IUser } from '../models/User.js';
 
@@ -30,7 +31,7 @@ export const authenticate = async (
     }
 
     const decoded = verifyToken(token);
-    if (!decoded || !decoded.userId) {
+    if (!decoded || !decoded.userId || !mongoose.Types.ObjectId.isValid(decoded.userId)) {
       res.status(401).json({
         status: 'error',
         message: 'Your session has expired or is invalid. Please sign in again.',
@@ -56,13 +57,13 @@ export const authenticate = async (
     }
 
     req.user = user;
-    next();
   } catch (error) {
-    res.status(401).json({
-      status: 'error',
-      message: 'Authentication failed.',
-    });
+    // Forward database errors or server errors to centralized errorHandler (500)
+    // rather than incorrectly masking them as a 401 "Authentication failed."
+    return next(error);
   }
+
+  next();
 };
 
 /**
@@ -82,7 +83,7 @@ export const optionalAuth = async (
 
     if (token) {
       const decoded = verifyToken(token);
-      if (decoded && decoded.userId) {
+      if (decoded && decoded.userId && mongoose.Types.ObjectId.isValid(decoded.userId)) {
         const user = await User.findById(decoded.userId);
         if (user && user.isActive) {
           req.user = user;
