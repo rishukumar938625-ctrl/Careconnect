@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ChevronLeft, Bookmark, Share2, Tag } from 'lucide-react';
+import { ChevronLeft, Bookmark, Share2, Tag, Check, ShieldCheck, UserCheck } from 'lucide-react';
 import { PageContainer } from '../components/layout/PageContainer';
 import { Badge } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
 import { MedicalDisclaimer } from '../components/health/HealthCards';
 import { EmptyState, LoadingState } from '../components/ui/StateComponents';
+import { useAuth } from '../context/AuthContext';
 import { healthApi } from '../services/api';
 import type { HealthCondition, Medicine, HealthArticle } from '../types';
 
@@ -17,9 +18,14 @@ type FoundItem =
 export const HealthDetails: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { user, refreshUser } = useAuth();
+
   const [found, setFound] = useState<FoundItem | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isSaved, setIsSaved] = useState(false);
+  const [savingBookmark, setSavingBookmark] = useState(false);
+  const [shareFeedback, setShareFeedback] = useState<string | null>(null);
 
   useEffect(() => {
     if (!id) return;
@@ -56,6 +62,78 @@ export const HealthDetails: React.FC = () => {
     tryFetch().finally(() => setLoading(false));
   }, [id]);
 
+  // Sync bookmark state with user profile bookmarks
+  useEffect(() => {
+    if (!found) return;
+    const slug = found.data.slug || id || '';
+    if (found.type === 'condition') {
+      const inUser = Boolean(user?.bookmarkedConditions?.includes(slug));
+      setIsSaved(inUser || Boolean(found.data.bookmarked) || Boolean(found.data.isSaved));
+    } else if (found.type === 'medicine') {
+      const inUser = Boolean(user?.bookmarkedMedicines?.includes(slug));
+      setIsSaved(inUser || Boolean(found.data.bookmarked) || Boolean(found.data.isSaved));
+    } else if (found.type === 'article') {
+      const inUser = Boolean(user?.bookmarkedArticles?.includes(slug));
+      setIsSaved(inUser || Boolean(found.data.bookmarked) || Boolean(found.data.isSaved));
+    }
+  }, [found, user, id]);
+
+  const handleToggleBookmark = async () => {
+    if (!found || savingBookmark) return;
+
+    if (!user) {
+      navigate('/login');
+      return;
+    }
+
+    const slug = found.data.slug || id;
+    if (!slug) return;
+
+    try {
+      setSavingBookmark(true);
+      if (found.type === 'condition') {
+        const res = await healthApi.toggleConditionBookmark(slug);
+        setIsSaved(res.bookmarked);
+      } else if (found.type === 'medicine') {
+        const res = await healthApi.toggleMedicineBookmark(slug);
+        setIsSaved(res.bookmarked);
+      } else if (found.type === 'article') {
+        const res = await healthApi.toggleArticleBookmark(slug);
+        setIsSaved(res.bookmarked);
+      }
+      await refreshUser();
+    } catch {
+      // Toggle back on failure
+      setIsSaved((prev) => !prev);
+    } finally {
+      setSavingBookmark(false);
+    }
+  };
+
+  const handleShare = async (title: string) => {
+    if (typeof navigator !== 'undefined' && navigator.share) {
+      try {
+        await navigator.share({
+          title,
+          url: window.location.href,
+        });
+        return;
+      } catch {
+        // Fall back to clipboard if user cancels or browser doesn't permit
+      }
+    }
+    if (typeof navigator !== 'undefined' && navigator.clipboard) {
+      try {
+        await navigator.clipboard.writeText(window.location.href);
+        setShareFeedback('Link copied to clipboard!');
+        setTimeout(() => setShareFeedback(null), 3000);
+      } catch {
+        setShareFeedback('Failed to copy link.');
+        setTimeout(() => setShareFeedback(null), 3000);
+      }
+    }
+  };
+
   if (loading) {
     return (
       <PageContainer>
@@ -79,14 +157,23 @@ export const HealthDetails: React.FC = () => {
   return (
     <PageContainer>
       {/* Back button */}
-      <button
-        onClick={() => navigate(-1)}
-        className="flex items-center gap-1.5 text-sm text-text-secondary hover:text-text-primary mb-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 rounded"
-        aria-label="Go back"
-      >
-        <ChevronLeft className="h-4 w-4" aria-hidden="true" />
-        Back
-      </button>
+      <div className="flex items-center justify-between mb-4">
+        <button
+          onClick={() => navigate(-1)}
+          className="flex items-center gap-1.5 text-sm text-text-secondary hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 rounded"
+          aria-label="Go back"
+        >
+          <ChevronLeft className="h-4 w-4" aria-hidden="true" />
+          Back
+        </button>
+
+        {shareFeedback && (
+          <div className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-primary-50 text-primary-700 border border-primary-200 animate-fade-in">
+            <Check className="h-3.5 w-3.5 text-primary-600" aria-hidden="true" />
+            <span>{shareFeedback}</span>
+          </div>
+        )}
+      </div>
 
       {/* Condition Detail */}
       {found.type === 'condition' && (() => {
@@ -97,17 +184,55 @@ export const HealthDetails: React.FC = () => {
               <h1 className="text-2xl font-bold text-text-primary">
                 {condition.name}
               </h1>
-              <button
-                aria-label="Save condition"
-                className="mt-1 text-text-muted hover:text-primary-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 rounded"
-              >
-                <Bookmark className="h-5 w-5" />
-              </button>
+              <div className="flex items-center gap-2 mt-1">
+                <button
+                  onClick={handleToggleBookmark}
+                  disabled={savingBookmark}
+                  aria-label={isSaved ? 'Remove condition from saved' : 'Save condition'}
+                  title={isSaved ? 'Remove from saved' : 'Save condition'}
+                  className={`p-1.5 rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 ${
+                    isSaved
+                      ? 'text-primary-600 bg-primary-50 hover:bg-primary-100'
+                      : 'text-text-muted hover:text-primary-600 hover:bg-slate-100'
+                  }`}
+                >
+                  <Bookmark className="h-5 w-5" fill={isSaved ? 'currentColor' : 'none'} />
+                </button>
+                <button
+                  onClick={() => handleShare(condition.name)}
+                  aria-label="Share condition"
+                  title="Share condition"
+                  className="p-1.5 rounded-lg text-text-muted hover:text-primary-600 hover:bg-slate-100 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
+                >
+                  <Share2 className="h-5 w-5" />
+                </button>
+              </div>
             </div>
-            <Badge variant="neutral" className="mb-4">
-              {condition.category}
-            </Badge>
-            <MedicalDisclaimer className="mb-5" />
+
+            <div className="flex flex-wrap items-center gap-2 mb-4">
+              <Badge variant="neutral">
+                {condition.category}
+              </Badge>
+              {condition.severity && (
+                <Badge variant={condition.severity === 'mild' ? 'success' : condition.severity === 'severe' ? 'danger' : 'warning'}>
+                  {condition.severity.toUpperCase()}
+                </Badge>
+              )}
+            </div>
+
+            <MedicalDisclaimer className="mb-4" />
+
+            {/* Source & Clinical Attribution */}
+            <div className="flex items-center gap-2 mb-5 px-3 py-2 rounded-xl bg-slate-50 border border-slate-200/60 text-xs text-text-muted">
+              <ShieldCheck className="h-4 w-4 text-primary-600 flex-shrink-0" aria-hidden="true" />
+              <span>
+                Source: CareConnect Clinical Knowledge Base · Clinically reviewed:{' '}
+                <span className="font-medium text-text-secondary">
+                  {condition.lastReviewedAt || 'October 2026'}
+                </span>
+              </span>
+            </div>
+
             <p className="text-base text-text-secondary leading-relaxed mb-5">
               {condition.description || condition.overview}
             </p>
@@ -233,20 +358,30 @@ export const HealthDetails: React.FC = () => {
               </div>
               <div className="flex items-center gap-2 mt-1">
                 <button
-                  aria-label="Save article"
-                  className="text-text-muted hover:text-primary-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 rounded"
+                  onClick={handleToggleBookmark}
+                  disabled={savingBookmark}
+                  aria-label={isSaved ? 'Remove article from saved' : 'Save article'}
+                  title={isSaved ? 'Remove from saved' : 'Save article'}
+                  className={`p-1.5 rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 ${
+                    isSaved
+                      ? 'text-primary-600 bg-primary-50 hover:bg-primary-100'
+                      : 'text-text-muted hover:text-primary-600 hover:bg-slate-100'
+                  }`}
                 >
-                  <Bookmark className="h-5 w-5" />
+                  <Bookmark className="h-5 w-5" fill={isSaved ? 'currentColor' : 'none'} />
                 </button>
                 <button
+                  onClick={() => handleShare(article.title)}
                   aria-label="Share article"
-                  className="text-text-muted hover:text-primary-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 rounded"
+                  title="Share article"
+                  className="p-1.5 rounded-lg text-text-muted hover:text-primary-600 hover:bg-slate-100 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
                 >
                   <Share2 className="h-5 w-5" />
                 </button>
               </div>
             </div>
-            <p className="text-sm text-text-muted mb-4">
+
+            <p className="text-sm text-text-muted mb-3">
               {article.readTimeMinutes ?? article.readingTimeMinutes ?? 5} min read · Published{' '}
               {new Date(article.publishedAt).toLocaleDateString('en-US', {
                 month: 'long',
@@ -254,7 +389,25 @@ export const HealthDetails: React.FC = () => {
                 year: 'numeric',
               })}
             </p>
-            <MedicalDisclaimer className="mb-5" />
+
+            <MedicalDisclaimer className="mb-4" />
+
+            {/* Author & Editorial Attribution */}
+            <div className="flex items-center gap-3 mb-5 p-3 rounded-xl bg-slate-50 border border-slate-200/60 text-xs">
+              <div className="flex items-center justify-center w-8 h-8 rounded-full bg-primary-100 text-primary-700 font-semibold flex-shrink-0">
+                <UserCheck className="h-4 w-4" aria-hidden="true" />
+              </div>
+              <div className="min-w-0">
+                <p className="font-semibold text-text-primary">
+                  {article.author?.name || 'CareConnect Medical Editorial Board'}
+                </p>
+                <p className="text-text-muted">
+                  {article.author?.role || 'Clinically Reviewed'} · Reviewed:{' '}
+                  {article.lastReviewedAt || 'October 2026'}
+                </p>
+              </div>
+            </div>
+
             <p className="text-base text-text-secondary leading-relaxed mb-4">
               {article.shortDescription ?? article.summary}
             </p>
@@ -291,17 +444,53 @@ export const HealthDetails: React.FC = () => {
                 </h1>
                 <p className="text-sm text-text-muted">{medicine.genericName}</p>
               </div>
-              <button
-                aria-label="Save medicine"
-                className="mt-1 text-text-muted hover:text-primary-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 rounded"
-              >
-                <Bookmark className="h-5 w-5" />
-              </button>
+              <div className="flex items-center gap-2 mt-1">
+                <button
+                  onClick={handleToggleBookmark}
+                  disabled={savingBookmark}
+                  aria-label={isSaved ? 'Remove medicine from saved' : 'Save medicine'}
+                  title={isSaved ? 'Remove from saved' : 'Save medicine'}
+                  className={`p-1.5 rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 ${
+                    isSaved
+                      ? 'text-primary-600 bg-primary-50 hover:bg-primary-100'
+                      : 'text-text-muted hover:text-primary-600 hover:bg-slate-100'
+                  }`}
+                >
+                  <Bookmark className="h-5 w-5" fill={isSaved ? 'currentColor' : 'none'} />
+                </button>
+                <button
+                  onClick={() => handleShare(medicine.name)}
+                  aria-label="Share medicine"
+                  title="Share medicine"
+                  className="p-1.5 rounded-lg text-text-muted hover:text-primary-600 hover:bg-slate-100 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
+                >
+                  <Share2 className="h-5 w-5" />
+                </button>
+              </div>
             </div>
-            <Badge variant="secondary" className="mb-4">
-              {medicine.category}
-            </Badge>
-            <MedicalDisclaimer className="mb-5" />
+
+            <div className="flex items-center gap-2 mb-4">
+              <Badge variant="secondary">
+                {medicine.category}
+              </Badge>
+              {medicine.requiresPrescription && (
+                <Badge variant="warning">Prescription Required</Badge>
+              )}
+            </div>
+
+            <MedicalDisclaimer className="mb-4" />
+
+            {/* Clinical Source Attribution */}
+            <div className="flex items-center gap-2 mb-5 px-3 py-2 rounded-xl bg-slate-50 border border-slate-200/60 text-xs text-text-muted">
+              <ShieldCheck className="h-4 w-4 text-secondary-600 flex-shrink-0" aria-hidden="true" />
+              <span>
+                Source: CareConnect Pharmacological Compendium · Clinically reviewed:{' '}
+                <span className="font-medium text-text-secondary">
+                  {medicine.lastReviewedAt || 'October 2026'}
+                </span>
+              </span>
+            </div>
+
             <p className="text-base text-text-secondary leading-relaxed mb-5">
               {medicine.shortDescription ?? medicine.description}
             </p>

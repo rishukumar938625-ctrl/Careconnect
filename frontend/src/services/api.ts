@@ -97,6 +97,16 @@ async function fetchJson<T>(url: string, options?: RequestInit): Promise<T> {
     } else {
       message = `Request failed with status ${response.status}`;
     }
+
+    // Surface a clear, actionable message when the backend reports
+    // database unavailability (503 from requireDb middleware).
+    if (response.status === 503) {
+      throw new ApiError(
+        503,
+        'The service is temporarily unavailable. The database connection has not been established. Please try again in a moment.'
+      );
+    }
+
     throw new ApiError(response.status, message);
   }
 

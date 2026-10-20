@@ -42,16 +42,16 @@ let server: http.Server;
 // Helper to calculate future date string (e.g. 5 days from today) on a weekday
 function getFutureWeekday(daysAhead = 3): { dateStr: string; dayName: string } {
   const d = new Date();
-  d.setDate(d.getDate() + daysAhead);
-  // If Saturday (6) or Sunday (0), advance to Monday
-  while (d.getDay() === 0 || d.getDay() === 6) {
-    d.setDate(d.getDate() + 1);
+  d.setUTCDate(d.getUTCDate() + daysAhead);
+  // If Saturday (6) or Sunday (0), advance to Monday — use UTC day consistently
+  while (d.getUTCDay() === 0 || d.getUTCDay() === 6) {
+    d.setUTCDate(d.getUTCDate() + 1);
   }
   const y = d.getUTCFullYear();
   const m = String(d.getUTCMonth() + 1).padStart(2, '0');
   const day = String(d.getUTCDate()).padStart(2, '0');
   const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-  return { dateStr: `${y}-${m}-${day}`, dayName: days[d.getDay()] };
+  return { dateStr: `${y}-${m}-${day}`, dayName: days[d.getUTCDay()] };
 }
 
 async function runTests() {

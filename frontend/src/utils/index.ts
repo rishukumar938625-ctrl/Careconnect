@@ -22,10 +22,26 @@ export function getTimeGreeting(): string {
 }
 
 /**
+ * Parse a calendar date string (YYYY-MM-DD) or ISO string into a local Date object.
+ *
+ * NOTE: Standard new Date("YYYY-MM-DD") parses as UTC midnight per ECMAScript.
+ * In timezones with a negative UTC offset (e.g. US Eastern UTC-4/5), formatting or
+ * zeroing hours on a UTC Date causes it to roll backward to the previous calendar day.
+ * Parsing explicitly by date components prevents this day-shift.
+ */
+export function parseCalendarDate(dateString: string): Date {
+  if (/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
+    const [year, month, day] = dateString.split('-').map(Number);
+    return new Date(year, month - 1, day);
+  }
+  return new Date(dateString);
+}
+
+/**
  * Format a date string to a friendly readable format
  */
 export function formatDate(dateString: string): string {
-  const date = new Date(dateString);
+  const date = parseCalendarDate(dateString);
   return date.toLocaleDateString('en-US', {
     weekday: 'long',
     year: 'numeric',
@@ -38,7 +54,7 @@ export function formatDate(dateString: string): string {
  * Format a date string to a short format like "Sep 30, 2025"
  */
 export function formatDateShort(dateString: string): string {
-  const date = new Date(dateString);
+  const date = parseCalendarDate(dateString);
   return date.toLocaleDateString('en-US', {
     month: 'short',
     day: 'numeric',
@@ -51,7 +67,7 @@ export function formatDateShort(dateString: string): string {
  */
 export function getRelativeDate(dateString: string): string {
   const today = new Date();
-  const target = new Date(dateString);
+  const target = parseCalendarDate(dateString);
 
   today.setHours(0, 0, 0, 0);
   target.setHours(0, 0, 0, 0);

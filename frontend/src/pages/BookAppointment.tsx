@@ -167,7 +167,7 @@ export const BookAppointment: React.FC = () => {
   };
 
   const handleConfirm = async () => {
-    if (!selectedDoctor || !selectedSlot) return;
+    if (!selectedDoctor || !selectedSlot || submitting) return;
     try {
       setSubmitting(true);
       setSubmitError(null);

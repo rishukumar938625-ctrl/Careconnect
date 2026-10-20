@@ -43,6 +43,12 @@ export const errorHandler = (
     message = 'Invalid resource identifier format';
   }
 
+  // Handle Mongoose buffering timeouts — database is disconnected
+  if (err.name === 'MongooseError' && message.includes('buffering timed out')) {
+    statusCode = 503;
+    message = 'Service temporarily unavailable — the database connection is not established. Please try again shortly.';
+  }
+
   // Handle Mongoose validation errors
   if (err.name === 'ValidationError') {
     statusCode = 400;

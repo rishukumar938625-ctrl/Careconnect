@@ -17,6 +17,7 @@ import {
 import { PageContainer } from '../components/layout/PageContainer';
 import { Card, CardHeader } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
+import { DbStatusBanner } from '../components/ui/DbStatusBanner';
 import { MedicationCard } from '../components/medications/MedicationCards';
 import { AppointmentCard } from '../components/appointments/AppointmentCards';
 import { getTimeGreeting, getInitials } from '../utils';
@@ -176,6 +177,9 @@ export const Dashboard: React.FC = () => {
           </button>
         </div>
       </header>
+
+      {/* Database connectivity warning banner */}
+      <DbStatusBanner />
 
       {/* Health Overview Stats Banner */}
       <section aria-labelledby="health-overview-heading" className="mb-5">

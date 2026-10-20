@@ -25,6 +25,7 @@ import userRoutes from './routes/userRoutes.js';
 import notificationRoutes from './routes/notificationRoutes.js';
 import { defaultWorker } from './services/notificationWorker.js';
 import { assertValidEnv } from './config/env.js';
+import { requireDb } from './middleware/requireDb.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -131,24 +132,21 @@ app.use(sanitizeNoSql);
 
 // ─── API Routes ─────────────────────────────────────────────────────────────
 
-// Health endpoints (/api/health and /api/health/db) and health data routes
+// Health endpoints (/api/health and /api/health/db) — always accessible for diagnostics
 app.use('/api/health', healthRoutes);
 
-// Phase 3 Authentication Endpoints
-app.use('/api/auth', authRoutes);
-
-// Phase 2 Health Information Module Endpoints
-app.use('/api/conditions', conditionRoutes);
-app.use('/api/medicines', medicineRoutes);
-app.use('/api/articles', articleRoutes);
-
-// Feature routes
-app.use('/api/medications', medicationRoutes);
-app.use('/api/doses', doseRoutes);
-app.use('/api/appointments', appointmentRoutes);
-app.use('/api/doctors', doctorRoutes);
-app.use('/api/user', userRoutes);
-app.use('/api/notifications', notificationRoutes);
+// All database-dependent routes use the requireDb guard to fail fast (503) when
+// MongoDB is disconnected, instead of letting Mongoose buffer for 10 seconds.
+app.use('/api/auth', requireDb, authRoutes);
+app.use('/api/conditions', requireDb, conditionRoutes);
+app.use('/api/medicines', requireDb, medicineRoutes);
+app.use('/api/articles', requireDb, articleRoutes);
+app.use('/api/medications', requireDb, medicationRoutes);
+app.use('/api/doses', requireDb, doseRoutes);
+app.use('/api/appointments', requireDb, appointmentRoutes);
+app.use('/api/doctors', requireDb, doctorRoutes);
+app.use('/api/user', requireDb, userRoutes);
+app.use('/api/notifications', requireDb, notificationRoutes);
 
 // ─── Error Handling & 404 Fallbacks ─────────────────────────────────────────
 
@@ -197,7 +195,20 @@ const startServer = async () => {
     });
   };
 
-  const server = await listenOnPort(PORT);
+  let server: import('http').Server;
+  try {
+    server = await listenOnPort(PORT);
+  } catch (err: any) {
+    if (err?.code === 'EADDRINUSE') {
+      console.error(`\n❌ [Server Error] Port ${PORT} (and fallback port ${PORT + 1}) are already in use.`);
+      console.error(`   Another process is currently holding the port.`);
+      console.error(`   To free the port, run: lsof -ti :${PORT} | xargs kill -9`);
+      console.error(`   Or configure a different port by setting PORT in your .env file.\n`);
+    } else {
+      console.error('\n❌ [Server Error] Failed to bind server port:', err?.message || err);
+    }
+    process.exit(1);
+  }
 
   // Graceful shutdown handling
   const shutdown = async (signal: string) => {
@@ -216,6 +227,9 @@ const startServer = async () => {
   process.on('SIGTERM', () => shutdown('SIGTERM'));
 };
 
-startServer();
+startServer().catch((fatalErr) => {
+  console.error('❌ [Fatal Startup Error]:', fatalErr);
+  process.exit(1);
+});
 
 export default app;
