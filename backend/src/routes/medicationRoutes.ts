@@ -21,6 +21,7 @@ router.get('/', getMedications);
 router.post('/', mutationLimiter, validateCsrf, createMedication);
 router.get('/:id', getMedicationById);
 router.patch('/:id', mutationLimiter, validateCsrf, updateMedication);
+router.put('/:id', mutationLimiter, validateCsrf, updateMedication);
 router.delete('/:id', mutationLimiter, validateCsrf, deleteMedication);
 
 export default router;

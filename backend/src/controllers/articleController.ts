@@ -129,36 +129,32 @@ export const toggleArticleBookmark = async (
       return;
     }
 
-    if (req.user) {
-      const userBookmarks = req.user.bookmarkedArticles || [];
-      const index = userBookmarks.indexOf(article.slug);
-      let isBookmarked = false;
-
-      if (index > -1) {
-        userBookmarks.splice(index, 1);
-        isBookmarked = false;
-      } else {
-        userBookmarks.push(article.slug);
-        isBookmarked = true;
-      }
-
-      req.user.bookmarkedArticles = userBookmarks;
-      await req.user.save();
-
-      res.status(200).json({
-        slug: article.slug,
-        bookmarked: isBookmarked,
+    if (!req.user) {
+      res.status(401).json({
+        status: 'error',
+        message: 'Authentication required to save bookmarks.',
       });
       return;
     }
 
-    // Fallback if accessed without user
-    article.bookmarked = !article.bookmarked;
-    await article.save();
+    const userBookmarks = req.user.bookmarkedArticles || [];
+    const index = userBookmarks.indexOf(article.slug);
+    let isBookmarked = false;
+
+    if (index > -1) {
+      userBookmarks.splice(index, 1);
+      isBookmarked = false;
+    } else {
+      userBookmarks.push(article.slug);
+      isBookmarked = true;
+    }
+
+    req.user.bookmarkedArticles = userBookmarks;
+    await req.user.save();
 
     res.status(200).json({
       slug: article.slug,
-      bookmarked: article.bookmarked,
+      bookmarked: isBookmarked,
     });
   } catch (error) {
     next(error);

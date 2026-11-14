@@ -387,6 +387,25 @@ export async function cancelAppointmentReminders(
 }
 
 /**
+ * Cancels any pending notification jobs for a medication (e.g. when archived or schedule updated).
+ */
+export async function cancelMedicationReminders(
+  medicationId: string | Types.ObjectId
+): Promise<number> {
+  const result = await NotificationJob.updateMany(
+    {
+      'payload.meta.medicationId': medicationId.toString(),
+      status: 'pending',
+    },
+    {
+      $set: { status: 'cancelled' },
+    }
+  );
+
+  return result.modifiedCount;
+}
+
+/**
  * Cancels any pending notification jobs for a dose record (e.g. when taken or skipped).
  */
 export async function cancelMedicationReminderForDose(

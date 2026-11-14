@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { PageContainer, PageHeader } from '../components/layout/PageContainer';
 import { SearchBar } from '../components/ui/SearchBar';
 import { MedicineCard, MedicalDisclaimer } from '../components/health/HealthCards';
@@ -10,7 +10,10 @@ import type { Medicine } from '../types';
 
 export const Medicines: React.FC = () => {
   const navigate = useNavigate();
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchParams] = useSearchParams();
+  const initialQuery = searchParams.get('q') ?? '';
+  const isBookmarkedOnly = searchParams.get('bookmarked') === 'true';
+  const [searchQuery, setSearchQuery] = useState(initialQuery);
   const [medicines, setMedicines] = useState<Medicine[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -19,7 +22,11 @@ export const Medicines: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
-      const response = await healthApi.getMedicines({ q: searchQuery, limit: 100 });
+      const response = await healthApi.getMedicines({
+        q: searchQuery,
+        bookmarked: isBookmarkedOnly,
+        limit: 100,
+      });
       const normalised = response.data.map((m) => ({
         ...m,
         id: (m as unknown as { _id: string })._id ?? m.id,
@@ -31,24 +38,45 @@ export const Medicines: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [searchQuery]);
+  }, [searchQuery, isBookmarkedOnly]);
 
   useEffect(() => {
     const timer = setTimeout(fetchMedicines, 300);
     return () => clearTimeout(timer);
   }, [fetchMedicines]);
 
+  const handleToggleBookmark = async (slugOrId: string) => {
+    try {
+      const res = await healthApi.toggleMedicineBookmark(slugOrId);
+      setMedicines((prev) =>
+        isBookmarkedOnly
+          ? prev.filter((m) => (m.slug || m.id) !== slugOrId)
+          : prev.map((m) =>
+              (m.slug || m.id) === slugOrId
+                ? { ...m, bookmarked: res.bookmarked, isSaved: res.bookmarked }
+                : m
+            )
+      );
+    } catch (err) {
+      console.error('[Medicines] toggle bookmark error:', err);
+    }
+  };
+
   return (
     <PageContainer>
       <PageHeader
-        title="Medicines"
-        subtitle="Educational information about common medicines."
+        title={isBookmarkedOnly ? 'Saved Medicines' : 'Medicines'}
+        subtitle={
+          isBookmarkedOnly
+            ? 'Your bookmarked educational medicine overviews.'
+            : 'Educational information about common medicines.'
+        }
       />
 
       <SearchBar
         value={searchQuery}
         onChange={setSearchQuery}
-        placeholder="Search medicines…"
+        placeholder={isBookmarkedOnly ? 'Search saved medicines…' : 'Search medicines…'}
         className="mb-4"
         id="medicines-search"
       />
@@ -72,9 +100,19 @@ export const Medicines: React.FC = () => {
       ) : medicines.length === 0 ? (
         <EmptyState
           icon={<Pill className="h-8 w-8" />}
-          title="No medicines found"
-          description={`No results for "${searchQuery}". Try a different search term.`}
-          action={{ label: 'Clear search', onClick: () => setSearchQuery('') }}
+          title={isBookmarkedOnly ? 'No saved medicines' : 'No medicines found'}
+          description={
+            isBookmarkedOnly
+              ? searchQuery
+                ? `No saved medicines matching "${searchQuery}".`
+                : 'You have not saved any medicines yet.'
+              : `No results for "${searchQuery}". Try a different search term.`
+          }
+          action={
+            isBookmarkedOnly && !searchQuery
+              ? { label: 'Browse all medicines', onClick: () => navigate('/health/medicines') }
+              : { label: 'Clear search', onClick: () => setSearchQuery('') }
+          }
         />
       ) : (
         <div className="grid gap-3 sm:grid-cols-2">
@@ -83,6 +121,7 @@ export const Medicines: React.FC = () => {
               key={medicine.id}
               medicine={medicine}
               onView={(id) => navigate(`/health/${id}`)}
+              onSave={handleToggleBookmark}
             />
           ))}
         </div>

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Activity,
@@ -14,6 +14,8 @@ import { SearchBar } from '../components/ui/SearchBar';
 import { HealthCategoryCard, HealthArticleCard, MedicalDisclaimer } from '../components/health/HealthCards';
 import { Card } from '../components/ui/Card';
 import { mockArticles, popularTopics } from '../data/mockHealthData';
+import { healthApi } from '../services/api';
+import type { HealthArticle } from '../types';
 
 const categories = [
   {
@@ -56,6 +58,49 @@ const categories = [
 export const Health: React.FC = () => {
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
+  const [featuredArticles, setFeaturedArticles] = useState<HealthArticle[]>(mockArticles.slice(0, 3));
+
+  useEffect(() => {
+    let active = true;
+    try {
+      const promise = healthApi.getArticles({ limit: 3 });
+      if (promise && typeof promise.then === 'function') {
+        promise
+          .then((res) => {
+            if (active && res && res.data && res.data.length > 0) {
+              const normalised = res.data.map((a) => ({
+                ...a,
+                id: (a as unknown as { _id: string })._id ?? a.id,
+              }));
+              setFeaturedArticles(normalised);
+            }
+          })
+          .catch((err) => {
+            console.warn('[Health] Failed to fetch featured articles from API, using fallback:', err);
+          });
+      }
+    } catch (err) {
+      console.warn('[Health] Error calling getArticles:', err);
+    }
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const handleToggleBookmark = async (slugOrId: string) => {
+    try {
+      const res = await healthApi.toggleArticleBookmark(slugOrId);
+      setFeaturedArticles((prev) =>
+        prev.map((a) =>
+          (a.slug || a.id) === slugOrId
+            ? { ...a, bookmarked: res.bookmarked, isSaved: res.bookmarked }
+            : a
+        )
+      );
+    } catch (err) {
+      console.error('[Health] Failed to toggle article bookmark:', err);
+    }
+  };
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -154,11 +199,12 @@ export const Health: React.FC = () => {
           </button>
         </div>
         <div className="flex flex-col gap-3">
-          {mockArticles.slice(0, 3).map((article) => (
+          {featuredArticles.map((article) => (
             <HealthArticleCard
               key={article.id}
               article={article}
               onRead={(id) => navigate(`/health/${id}`)}
+              onSave={handleToggleBookmark}
             />
           ))}
         </div>

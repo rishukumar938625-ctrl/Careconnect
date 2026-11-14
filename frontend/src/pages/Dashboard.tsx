@@ -442,7 +442,7 @@ export const Dashboard: React.FC = () => {
             icon={<Stethoscope className="h-5 w-5 text-emerald-600" />}
             label="Find Doctors"
             description="Specialist directory"
-            onClick={() => navigate('/doctors')}
+            onClick={() => navigate('/appointments/doctors')}
             bgClass="bg-emerald-50 hover:bg-emerald-100/70"
             id="qa-find-doctors"
           />

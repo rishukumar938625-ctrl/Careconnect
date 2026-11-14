@@ -4,6 +4,10 @@ import { Medication, IMedication } from '../models/Medication.js';
 import { DoseRecord } from '../models/DoseRecord.js';
 import { AuthRequest } from '../middleware/authMiddleware.js';
 import { generateDosesForMedication, formatDateStr } from '../utils/scheduler.js';
+import {
+  cancelMedicationReminders,
+  scheduleMedicationRemindersForUser,
+} from '../services/notificationScheduler.js';
 
 /**
  * GET /api/medications
@@ -222,6 +226,12 @@ export const updateMedication = async (
       medication.dosage = dosage.trim();
     }
 
+    const scheduleChanged =
+      (frequency !== undefined && frequency !== medication.frequency) ||
+      (timesOfDay !== undefined || times !== undefined) ||
+      (startDate !== undefined && startDate !== medication.startDate) ||
+      (endDate !== undefined && endDate !== medication.endDate);
+
     if (form !== undefined) medication.form = form;
     if (frequency !== undefined) medication.frequency = frequency;
 
@@ -264,8 +274,27 @@ export const updateMedication = async (
 
     await medication.save();
 
+    const todayStr = formatDateStr(new Date());
+
+    if (scheduleChanged) {
+      // Clean up future unadministered pending doses
+      await DoseRecord.deleteMany({
+        medicationId: medication._id,
+        userId: req.user._id,
+        scheduledDate: { $gte: todayStr },
+        status: 'pending',
+      });
+      // Cancel obsolete pending reminder jobs
+      await cancelMedicationReminders(medication._id);
+    }
+
     // Regenerate upcoming doses starting from today
     await generateDosesForMedication(medication, 7);
+
+    // Reschedule reminder jobs if reminderEnabled is active
+    if (medication.reminderEnabled) {
+      await scheduleMedicationRemindersForUser(req.user._id);
+    }
 
     res.status(200).json(medication);
   } catch (error) {
@@ -308,14 +337,17 @@ export const deleteMedication = async (
     medication.isActive = false;
     await medication.save();
 
-    // Clean up future pending doses after today
+    // Clean up future and today's unadministered pending doses
     const todayStr = formatDateStr(new Date());
     await DoseRecord.deleteMany({
       medicationId: medication._id,
       userId: req.user._id,
-      scheduledDate: { $gt: todayStr },
+      scheduledDate: { $gte: todayStr },
       status: 'pending',
     });
+
+    // Cancel all pending reminder jobs for this archived medication
+    await cancelMedicationReminders(medication._id);
 
     res.status(200).json({
       status: 'success',

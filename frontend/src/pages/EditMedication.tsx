@@ -145,8 +145,8 @@ export const EditMedication: React.FC = () => {
         frequency: values.frequency as MedicationFrequency,
         timesOfDay: [values.time],
         startDate: values.startDate,
-        endDate: values.endDate || undefined,
-        instructions: values.notes.trim() || undefined,
+        endDate: values.endDate ? values.endDate : '',
+        instructions: values.notes.trim(),
         timezone: userTimezone,
         color: values.color,
       });

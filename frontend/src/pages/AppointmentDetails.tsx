@@ -17,7 +17,7 @@ import { Button } from '../components/ui/Button';
 import { DoctorAvatar } from '../components/appointments/AppointmentCards';
 import { EmptyState } from '../components/ui/StateComponents';
 import { appointmentApi } from '../services/api';
-import { getRelativeDate, formatTime } from '../utils';
+import { getRelativeDate, formatTime, parseCalendarDate } from '../utils';
 import type { Appointment } from '../types';
 
 export const AppointmentDetails: React.FC = () => {
@@ -179,7 +179,7 @@ export const AppointmentDetails: React.FC = () => {
           <InfoItem
             icon={<Calendar className="h-4 w-4" />}
             label="Date"
-            value={`${relativeDate}, ${new Date(appointment.date).toLocaleDateString('en-US', {
+            value={`${relativeDate}, ${parseCalendarDate(appointment.date).toLocaleDateString('en-US', {
               month: 'short',
               day: 'numeric',
             })}`}

@@ -34,11 +34,13 @@ export const getTodayDoses = async (
       userId: req.user._id,
       scheduledDate: todayStr,
     })
-      .populate('medicationId', 'name dosage form instructions color reminderEnabled')
+      .populate('medicationId', 'name dosage form instructions color reminderEnabled isActive')
       .sort({ scheduledTime: 1 });
 
-    // Filter out any orphaned doses where the medication no longer exists
-    const validDoses = doses.filter((d) => d.medicationId != null);
+    // Filter out any orphaned doses or doses belonging to deactivated/archived medications
+    const validDoses = doses.filter(
+      (d) => d.medicationId != null && (d.medicationId as unknown as { isActive?: boolean }).isActive !== false
+    );
 
     res.status(200).json(validDoses);
   } catch (error) {
@@ -287,10 +289,21 @@ export const getAdherenceStats = async (
 
     const sortedDates = Array.from(dateMap.keys()).sort().reverse();
     let currentStreak = 0;
+    let prevDate: Date | null = null;
     for (const d of sortedDates) {
       const entry = dateMap.get(d)!;
+      const currentDate = new Date(d + 'T00:00:00Z');
+      if (prevDate !== null) {
+        const diffMs = prevDate.getTime() - currentDate.getTime();
+        const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24));
+        if (diffDays !== 1) {
+          // Break streak if dates are not strictly consecutive calendar days
+          break;
+        }
+      }
       if (entry.total > 0 && entry.taken === entry.total) {
         currentStreak++;
+        prevDate = currentDate;
       } else {
         break;
       }

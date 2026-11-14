@@ -139,25 +139,25 @@ function extractCookies(setCookieHeader: string | string[] | undefined): { token
 
 function getTodayDateStr(): string {
   const d = new Date();
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
+  const y = d.getUTCFullYear();
+  const m = String(d.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(d.getUTCDate()).padStart(2, '0');
   return `${y}-${m}-${day}`;
 }
 
 function getFutureWeekday(daysInFuture: number = 7): { dateStr: string; dayName: string } {
   const d = new Date();
-  d.setDate(d.getDate() + daysInFuture);
-  while (d.getDay() === 0 || d.getDay() === 6) {
-    d.setDate(d.getDate() + 1);
+  d.setUTCDate(d.getUTCDate() + daysInFuture);
+  while (d.getUTCDay() === 0 || d.getUTCDay() === 6) {
+    d.setUTCDate(d.getUTCDate() + 1);
   }
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
+  const y = d.getUTCFullYear();
+  const m = String(d.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(d.getUTCDate()).padStart(2, '0');
   const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
   return {
     dateStr: `${y}-${m}-${day}`,
-    dayName: days[d.getDay()],
+    dayName: days[d.getUTCDay()],
   };
 }
 
@@ -737,7 +737,16 @@ async function runTests() {
     }
 
     // Double-booking check: User 2 (Bob) tries to book the EXACT SAME slot
-    const bobUser = await User.findOne({ email: 'bob.smith@careconnect.test' });
+    let bobUser = await User.findOne({ email: 'bob.smith@careconnect.test' });
+    if (!bobUser) {
+      await req('POST', '/api/auth/register', {
+        body: {
+          name: 'Bob Smith',
+          email: 'bob.smith@careconnect.test',
+          password: 'SecureP@ssword2026!',
+        },
+      });
+    }
     const { token: bobToken, csrf: bobCsrf } = extractCookies(
       (await req('POST', '/api/auth/login', {
         body: { email: 'bob.smith@careconnect.test', password: 'SecureP@ssword2026!' },

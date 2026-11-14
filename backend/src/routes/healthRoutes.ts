@@ -15,6 +15,8 @@ import {
   getArticleBySlug,
   toggleArticleBookmark,
 } from '../controllers/articleController.js';
+import { optionalAuth, authenticate } from '../middleware/authMiddleware.js';
+import { validateCsrf } from '../middleware/csrfMiddleware.js';
 
 const router = Router();
 
@@ -28,16 +30,16 @@ router.get('/db', getDbHealth);
 
 // ─── Health Content Forwarding (for /api/health/* compatibility) ──────────────
 
-router.get('/conditions', getConditions);
-router.get('/conditions/:slug', getConditionBySlug);
-router.post('/conditions/:slug/bookmark', toggleConditionBookmark);
+router.get('/conditions', optionalAuth, getConditions);
+router.get('/conditions/:slug', optionalAuth, getConditionBySlug);
+router.post('/conditions/:slug/bookmark', authenticate, validateCsrf, toggleConditionBookmark);
 
-router.get('/medicines', getMedicines);
-router.get('/medicines/:slug', getMedicineBySlug);
-router.post('/medicines/:slug/bookmark', toggleMedicineBookmark);
+router.get('/medicines', optionalAuth, getMedicines);
+router.get('/medicines/:slug', optionalAuth, getMedicineBySlug);
+router.post('/medicines/:slug/bookmark', authenticate, validateCsrf, toggleMedicineBookmark);
 
-router.get('/articles', getArticles);
-router.get('/articles/:slug', getArticleBySlug);
-router.post('/articles/:slug/bookmark', toggleArticleBookmark);
+router.get('/articles', optionalAuth, getArticles);
+router.get('/articles/:slug', optionalAuth, getArticleBySlug);
+router.post('/articles/:slug/bookmark', authenticate, validateCsrf, toggleArticleBookmark);
 
 export default router;

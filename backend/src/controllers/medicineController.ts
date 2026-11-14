@@ -127,35 +127,32 @@ export const toggleMedicineBookmark = async (
       return;
     }
 
-    if (req.user) {
-      const userBookmarks = req.user.bookmarkedMedicines || [];
-      const index = userBookmarks.indexOf(medicine.slug);
-      let isBookmarked = false;
-
-      if (index > -1) {
-        userBookmarks.splice(index, 1);
-        isBookmarked = false;
-      } else {
-        userBookmarks.push(medicine.slug);
-        isBookmarked = true;
-      }
-
-      req.user.bookmarkedMedicines = userBookmarks;
-      await req.user.save();
-
-      res.status(200).json({
-        slug: medicine.slug,
-        bookmarked: isBookmarked,
+    if (!req.user) {
+      res.status(401).json({
+        status: 'error',
+        message: 'Authentication required to save bookmarks.',
       });
       return;
     }
 
-    medicine.bookmarked = !medicine.bookmarked;
-    await medicine.save();
+    const userBookmarks = req.user.bookmarkedMedicines || [];
+    const index = userBookmarks.indexOf(medicine.slug);
+    let isBookmarked = false;
+
+    if (index > -1) {
+      userBookmarks.splice(index, 1);
+      isBookmarked = false;
+    } else {
+      userBookmarks.push(medicine.slug);
+      isBookmarked = true;
+    }
+
+    req.user.bookmarkedMedicines = userBookmarks;
+    await req.user.save();
 
     res.status(200).json({
       slug: medicine.slug,
-      bookmarked: medicine.bookmarked,
+      bookmarked: isBookmarked,
     });
   } catch (error) {
     next(error);

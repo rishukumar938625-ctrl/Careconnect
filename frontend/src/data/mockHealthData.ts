@@ -5,6 +5,7 @@ import type { HealthCondition, Medicine, HealthArticle } from '../types';
 export const mockConditions: HealthCondition[] = [
   {
     id: 'hc-001',
+    slug: 'common-cold',
     name: 'Common Cold',
     category: 'Respiratory',
     shortDescription: 'A mild viral infection of the upper respiratory tract.',
@@ -16,6 +17,7 @@ export const mockConditions: HealthCondition[] = [
   },
   {
     id: 'hc-002',
+    slug: 'headache',
     name: 'Headache',
     category: 'Neurological',
     shortDescription: 'Pain or discomfort in the head, scalp, or neck area.',
@@ -27,6 +29,7 @@ export const mockConditions: HealthCondition[] = [
   },
   {
     id: 'hc-003',
+    slug: 'seasonal-allergies',
     name: 'Seasonal Allergies',
     category: 'Immunological',
     shortDescription: 'Immune response to environmental allergens like pollen.',
@@ -38,6 +41,7 @@ export const mockConditions: HealthCondition[] = [
   },
   {
     id: 'hc-004',
+    slug: 'asthma',
     name: 'Asthma',
     category: 'Respiratory',
     shortDescription: 'A condition in which airways narrow and swell.',
@@ -98,6 +102,7 @@ export const mockConditions: HealthCondition[] = [
 export const mockMedicines: Medicine[] = [
   {
     id: 'med-001',
+    slug: 'paracetamol',
     name: 'Paracetamol',
     genericName: 'Acetaminophen',
     category: 'Pain Reliever / Fever Reducer',
@@ -107,6 +112,7 @@ export const mockMedicines: Medicine[] = [
   },
   {
     id: 'med-002',
+    slug: 'ibuprofen',
     name: 'Ibuprofen',
     genericName: 'Ibuprofen',
     category: 'NSAID / Anti-inflammatory',
@@ -175,6 +181,7 @@ export const mockMedicines: Medicine[] = [
 export const mockArticles: HealthArticle[] = [
   {
     id: 'art-001',
+    slug: 'evidence-based-sleep-hygiene',
     title: 'Understanding Healthy Sleep',
     category: 'Wellness',
     shortDescription:
@@ -244,10 +251,10 @@ export const mockArticles: HealthArticle[] = [
 // ─── Popular Health Topics ────────────────────────────────────────────────────
 
 export const popularTopics = [
-  { label: 'Common Cold', conditionId: 'hc-001' },
-  { label: 'Headache', conditionId: 'hc-002' },
-  { label: 'Seasonal Allergies', conditionId: 'hc-003' },
-  { label: 'Healthy Sleep', articleId: 'art-001' },
+  { label: 'Common Cold', conditionId: 'common-cold' },
+  { label: 'Headache', conditionId: 'headache' },
+  { label: 'Seasonal Allergies', conditionId: 'seasonal-allergies' },
+  { label: 'Healthy Sleep', articleId: 'evidence-based-sleep-hygiene' },
   { label: 'Dehydration', conditionId: null },
 ];
 

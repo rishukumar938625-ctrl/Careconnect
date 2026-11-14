@@ -8,6 +8,7 @@ import { MedicalDisclaimer } from '../components/health/HealthCards';
 import { EmptyState, LoadingState } from '../components/ui/StateComponents';
 import { useAuth } from '../context/AuthContext';
 import { healthApi } from '../services/api';
+import { mockConditions, mockMedicines, mockArticles } from '../data/mockHealthData';
 import type { HealthCondition, Medicine, HealthArticle } from '../types';
 
 type FoundItem =
@@ -53,8 +54,26 @@ export const HealthDetails: React.FC = () => {
         setFound({ type: 'article', data: article });
         return;
       } catch {
-        // not found in any collection
+        // not found in API collections
       }
+
+      // Check fallback mock datasets for legacy IDs or offline support
+      const mockC = mockConditions.find((c) => c.slug === id || c.id === id);
+      if (mockC) {
+        setFound({ type: 'condition', data: mockC });
+        return;
+      }
+      const mockM = mockMedicines.find((m) => m.slug === id || m.id === id);
+      if (mockM) {
+        setFound({ type: 'medicine', data: mockM });
+        return;
+      }
+      const mockA = mockArticles.find((a) => a.slug === id || a.id === id);
+      if (mockA) {
+        setFound({ type: 'article', data: mockA });
+        return;
+      }
+
       setFound(null);
       setError('not_found');
     };

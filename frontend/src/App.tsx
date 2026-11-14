@@ -84,6 +84,7 @@ const App: React.FC = () => {
           {/* Appointments */}
           <Route path="/appointments" element={<Appointments />} />
           <Route path="/appointments/doctors" element={<Doctors />} />
+          <Route path="/doctors" element={<Navigate to="/appointments/doctors" replace />} />
           <Route
             path="/appointments/book"
             element={

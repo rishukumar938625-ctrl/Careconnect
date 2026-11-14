@@ -127,35 +127,32 @@ export const toggleConditionBookmark = async (
       return;
     }
 
-    if (req.user) {
-      const userBookmarks = req.user.bookmarkedConditions || [];
-      const index = userBookmarks.indexOf(condition.slug);
-      let isBookmarked = false;
-
-      if (index > -1) {
-        userBookmarks.splice(index, 1);
-        isBookmarked = false;
-      } else {
-        userBookmarks.push(condition.slug);
-        isBookmarked = true;
-      }
-
-      req.user.bookmarkedConditions = userBookmarks;
-      await req.user.save();
-
-      res.status(200).json({
-        slug: condition.slug,
-        bookmarked: isBookmarked,
+    if (!req.user) {
+      res.status(401).json({
+        status: 'error',
+        message: 'Authentication required to save bookmarks.',
       });
       return;
     }
 
-    condition.bookmarked = !condition.bookmarked;
-    await condition.save();
+    const userBookmarks = req.user.bookmarkedConditions || [];
+    const index = userBookmarks.indexOf(condition.slug);
+    let isBookmarked = false;
+
+    if (index > -1) {
+      userBookmarks.splice(index, 1);
+      isBookmarked = false;
+    } else {
+      userBookmarks.push(condition.slug);
+      isBookmarked = true;
+    }
+
+    req.user.bookmarkedConditions = userBookmarks;
+    await req.user.save();
 
     res.status(200).json({
       slug: condition.slug,
-      bookmarked: condition.bookmarked,
+      bookmarked: isBookmarked,
     });
   } catch (error) {
     next(error);

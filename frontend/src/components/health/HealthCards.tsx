@@ -67,6 +67,8 @@ export const ConditionCard: React.FC<ConditionCardProps> = ({
     else navigate(`/health/${slugOrId}`);
   };
 
+  const isSaved = Boolean(condition.bookmarked ?? condition.isSaved);
+
   return (
     <Card className="flex flex-col gap-3">
       <div className="flex items-start gap-3">
@@ -82,15 +84,15 @@ export const ConditionCard: React.FC<ConditionCardProps> = ({
               {condition.name}
             </h3>
             <button
-              onClick={() => onSave && onSave(condition.id)}
-              aria-label={condition.isSaved ? 'Remove from saved' : 'Save condition'}
+              onClick={() => onSave && onSave(condition.slug || condition.id)}
+              aria-label={isSaved ? 'Remove from saved' : 'Save condition'}
               className={`flex-shrink-0 transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 rounded ${
-                condition.isSaved ? 'text-primary-600' : 'text-text-muted hover:text-primary-500'
+                isSaved ? 'text-primary-600' : 'text-text-muted hover:text-primary-500'
               }`}
             >
               <Bookmark
                 className="h-4 w-4"
-                fill={condition.isSaved ? 'currentColor' : 'none'}
+                fill={isSaved ? 'currentColor' : 'none'}
               />
             </button>
           </div>
@@ -137,6 +139,8 @@ export const MedicineCard: React.FC<MedicineCardProps> = ({
     else navigate(`/health/${slugOrId}`);
   };
 
+  const isSaved = Boolean(medicine.bookmarked ?? medicine.isSaved);
+
   return (
     <Card className="flex flex-col gap-3">
       <div className="flex items-start justify-between gap-2">
@@ -155,15 +159,15 @@ export const MedicineCard: React.FC<MedicineCardProps> = ({
           </div>
         </div>
         <button
-          onClick={() => onSave && onSave(medicine.id)}
-          aria-label={medicine.isSaved ? 'Remove from saved' : 'Save medicine'}
+          onClick={() => onSave && onSave(medicine.slug || medicine.id)}
+          aria-label={isSaved ? 'Remove from saved' : 'Save medicine'}
           className={`flex-shrink-0 transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 rounded ${
-            medicine.isSaved ? 'text-primary-600' : 'text-text-muted hover:text-primary-500'
+            isSaved ? 'text-primary-600' : 'text-text-muted hover:text-primary-500'
           }`}
         >
           <Bookmark
             className="h-4 w-4"
-            fill={medicine.isSaved ? 'currentColor' : 'none'}
+            fill={isSaved ? 'currentColor' : 'none'}
           />
         </button>
       </div>
@@ -209,6 +213,8 @@ export const HealthArticleCard: React.FC<HealthArticleCardProps> = ({
     else navigate(`/health/${slugOrId}`);
   };
 
+  const isSaved = Boolean(article.bookmarked ?? article.isSaved);
+
   return (
     <Card className="flex flex-col gap-3">
       <div className="flex items-start justify-between gap-2">
@@ -224,15 +230,15 @@ export const HealthArticleCard: React.FC<HealthArticleCardProps> = ({
           </h3>
         </div>
         <button
-          onClick={() => onSave && onSave(article.id)}
-          aria-label={article.isSaved ? 'Remove from saved' : 'Save article'}
+          onClick={() => onSave && onSave(article.slug || article.id)}
+          aria-label={isSaved ? 'Remove from saved' : 'Save article'}
           className={`flex-shrink-0 transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 rounded ${
-            article.isSaved ? 'text-primary-600' : 'text-text-muted hover:text-primary-500'
+            isSaved ? 'text-primary-600' : 'text-text-muted hover:text-primary-500'
           }`}
         >
           <Bookmark
             className="h-4 w-4"
-            fill={article.isSaved ? 'currentColor' : 'none'}
+            fill={isSaved ? 'currentColor' : 'none'}
           />
         </button>
       </div>
