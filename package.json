@@ -21,6 +21,7 @@
     "test:notifications": "npm --prefix backend run test:notifications",
     "test:security": "npm --prefix backend run test:security",
     "test:qa": "npm --prefix backend run test:qa",
+    "test:db": "npm --prefix backend run test:db",
     "worker": "npm --prefix backend run worker",
     "seed": "npm --prefix backend run seed",
     "seed:health": "npm --prefix backend run seed:health",

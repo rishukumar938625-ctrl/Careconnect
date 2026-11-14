@@ -3,7 +3,8 @@
  * Safely masks database credentials and sensitive connection strings from logs and error messages.
  */
 
-const MONGO_URI_REGEX = /(mongodb(?:\+srv)?:\/\/[^:]+:)([^@]+)(@.+)/gi;
+const MONGO_URI_REGEX = /(mongodb(?:\+srv)?:\/\/[^:]+:)([^@]+)(@[^\s"'`]+)/gi;
+const GENERIC_PASSWORD_REGEX = /((?:password|pwd|secret|token|apiKey)\s*[:=]\s*["']?)([^"'`\s,;&]+)(["']?)/gi;
 
 /**
  * Masks credentials in a MongoDB connection string.
@@ -34,5 +35,8 @@ export function sanitizeError(error: unknown): string {
   }
 
   // Strip any embedded MongoDB URI credentials
-  return message.replace(MONGO_URI_REGEX, '$1*****$3');
+  let safe = message.replace(MONGO_URI_REGEX, '$1*****$3');
+  // Strip any embedded generic secrets/passwords
+  safe = safe.replace(GENERIC_PASSWORD_REGEX, '$1*****$3');
+  return safe;
 }

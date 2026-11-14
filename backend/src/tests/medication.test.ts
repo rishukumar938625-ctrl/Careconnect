@@ -150,7 +150,7 @@ async function runTests() {
           frequency: 'twice_daily',
           timesOfDay: ['08:00', '20:00'],
           startDate: '2026-10-01',
-          endDate: '2026-11-01',
+          endDate: '2028-11-01',
           instructions: 'Take with evening meal',
           timezone: 'Asia/Kolkata',
           color: '#10B981',

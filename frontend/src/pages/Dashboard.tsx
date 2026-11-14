@@ -139,6 +139,13 @@ export const Dashboard: React.FC = () => {
     day: 'numeric',
   }).format(new Date());
 
+  const handleDbReconnect = useCallback(() => {
+    if (user) {
+      fetchDoses();
+      fetchAppointments();
+    }
+  }, [user, fetchDoses, fetchAppointments]);
+
   return (
     <PageContainer>
       {/* Page Header */}
@@ -179,7 +186,7 @@ export const Dashboard: React.FC = () => {
       </header>
 
       {/* Database connectivity warning banner */}
-      <DbStatusBanner />
+      <DbStatusBanner onReconnect={handleDbReconnect} />
 
       {/* Health Overview Stats Banner */}
       <section aria-labelledby="health-overview-heading" className="mb-5">

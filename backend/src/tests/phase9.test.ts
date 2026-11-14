@@ -431,13 +431,28 @@ async function runTests() {
     const u2Csrf = generateCsrfToken();
 
     // 15. Concurrent booking collision detection
-    // Book slot 2026-11-02 10:00 (which is a Monday)
+    // Compute future Monday and Friday to ensure valid booking dates
+    function getNextWeekdayDate(dayOfWeek: number): string {
+      const d = new Date();
+      d.setDate(d.getDate() + 1);
+      while (d.getDay() !== dayOfWeek) {
+        d.setDate(d.getDate() + 1);
+      }
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${y}-${m}-${day}`;
+    }
+    const futureMonday = getNextWeekdayDate(1);
+    const futureFriday = getNextWeekdayDate(5);
+
+    // Book slot 10:00 on future Monday
     const slotBooking1 = await req('POST', '/api/appointments', {
       token: u1Token,
       csrf: u1Csrf,
       body: {
         doctorId: testDoctor._id.toString(),
-        date: '2026-11-02',
+        date: futureMonday,
         timeSlot: '10:00',
         type: 'in-person',
         reason: 'Initial consultation',
@@ -456,7 +471,7 @@ async function runTests() {
       csrf: u2Csrf,
       body: {
         doctorId: testDoctor._id.toString(),
-        date: '2026-11-02',
+        date: futureMonday,
         timeSlot: '10:00',
         type: 'in-person',
         reason: 'Second user booking same slot',
@@ -585,7 +600,7 @@ async function runTests() {
       csrf: e2eCsrf,
       body: {
         doctorId: testDoctor._id.toString(),
-        date: '2026-11-06', // Friday
+        date: futureFriday,
         timeSlot: '14:00',
         type: 'in-person',
         reason: 'Asthma consultation',

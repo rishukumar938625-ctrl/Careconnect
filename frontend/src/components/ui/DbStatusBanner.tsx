@@ -1,6 +1,14 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { AlertCircle, RefreshCw, WifiOff } from 'lucide-react';
 import { healthCheckApi } from '../../services/api';
+
+export interface DbStatusBannerProps {
+  /**
+   * Optional callback invoked when the database transitions from
+   * disconnected/down to connected (e.g. after a successful retry).
+   */
+  onReconnect?: () => void;
+}
 
 /**
  * A persistent status banner that checks database connectivity
@@ -9,23 +17,35 @@ import { healthCheckApi } from '../../services/api';
  *
  * Renders nothing when the database is healthy.
  */
-export const DbStatusBanner: React.FC = () => {
+export const DbStatusBanner: React.FC<DbStatusBannerProps> = ({ onReconnect }) => {
   const [dbDown, setDbDown] = useState(false);
   const [checking, setChecking] = useState(false);
   const [dismissed, setDismissed] = useState(false);
+  const prevDownRef = useRef(false);
 
   const checkDbHealth = useCallback(async () => {
     setChecking(true);
     try {
       const res = await healthCheckApi.checkDatabase();
-      setDbDown(res.status !== 'connected');
-      if (res.status === 'connected') setDismissed(false);
+      const isConnected = res.status === 'connected' && res.database === 'connected';
+      setDbDown(!isConnected);
+
+      if (isConnected) {
+        setDismissed(false);
+        if (prevDownRef.current) {
+          prevDownRef.current = false;
+          onReconnect?.();
+        }
+      } else {
+        prevDownRef.current = true;
+      }
     } catch {
       setDbDown(true);
+      prevDownRef.current = true;
     } finally {
       setChecking(false);
     }
-  }, []);
+  }, [onReconnect]);
 
   useEffect(() => {
     checkDbHealth();
@@ -42,6 +62,7 @@ export const DbStatusBanner: React.FC = () => {
       className="mx-auto max-w-lg mb-4 px-4 py-3 rounded-2xl bg-amber-50 border border-amber-200 shadow-sm"
       role="alert"
       aria-live="polite"
+      data-testid="db-status-banner"
     >
       <div className="flex items-start gap-3">
         <div className="flex items-center justify-center w-9 h-9 rounded-xl bg-amber-100 text-amber-600 flex-shrink-0 mt-0.5">
@@ -59,6 +80,7 @@ export const DbStatusBanner: React.FC = () => {
             <button
               onClick={checkDbHealth}
               disabled={checking}
+              aria-label="Retry database connection"
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-amber-800 bg-amber-100 hover:bg-amber-200/70 transition-colors disabled:opacity-50"
             >
               <RefreshCw className={`h-3.5 w-3.5 ${checking ? 'animate-spin' : ''}`} aria-hidden="true" />
@@ -66,6 +88,7 @@ export const DbStatusBanner: React.FC = () => {
             </button>
             <button
               onClick={() => setDismissed(true)}
+              aria-label="Dismiss database warning"
               className="px-3 py-1.5 rounded-lg text-xs font-medium text-amber-600 hover:text-amber-800 hover:bg-amber-100/60 transition-colors"
             >
               Dismiss

@@ -132,8 +132,24 @@ export interface DbHealth {
 }
 
 export const healthCheckApi = {
-  checkBackend: (): Promise<BackendHealth> => fetchJson<BackendHealth>('/health'),
-  checkDatabase: (): Promise<DbHealth> => fetchJson<DbHealth>('/health/db'),
+  checkBackend: (): Promise<BackendHealth> =>
+    fetchJson<BackendHealth>('/health', { cache: 'no-store' }),
+  checkDatabase: async (): Promise<DbHealth> => {
+    try {
+      return await fetchJson<DbHealth>('/health/db', { cache: 'no-store' });
+    } catch (err: unknown) {
+      if (err instanceof ApiError && err.status === 503) {
+        return {
+          status: 'disconnected',
+          database: 'disconnected',
+          readyState: 0,
+          timestamp: new Date().toISOString(),
+          message: err.message,
+        };
+      }
+      throw err;
+    }
+  },
 };
 
 // ─── Health Information Service (Phase 2) ───────────────────────────────────
