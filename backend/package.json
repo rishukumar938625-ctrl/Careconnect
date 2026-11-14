@@ -20,6 +20,7 @@
     "test:profile": "tsx src/tests/phase6.test.ts && tsx src/tests/profileAuth.test.ts",
     "test:notifications": "tsx src/tests/phase7.test.ts",
     "test:security": "tsx src/tests/phase8.test.ts",
+    "test:staging": "tsx src/tests/liveStagingAudit.ts",
     "test:qa": "tsx src/tests/phase9.test.ts"
   },
   "dependencies": {
