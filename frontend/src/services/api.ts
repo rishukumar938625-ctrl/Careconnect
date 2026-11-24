@@ -429,7 +429,11 @@ export const authApi = {
   register: async (data: { name: string; email: string; password: string }): Promise<AuthResponse> => {
     const res = await fetchJson<AuthResponse>('/auth/register', {
       method: 'POST',
-      body: JSON.stringify(data),
+      body: JSON.stringify({
+        ...data,
+        name: data.name.trim(),
+        email: data.email.trim().toLowerCase(),
+      }),
     });
     if (res.csrfToken) {
       setCsrfToken(res.csrfToken);
@@ -440,7 +444,10 @@ export const authApi = {
   login: async (data: { email: string; password: string }): Promise<AuthResponse> => {
     const res = await fetchJson<AuthResponse>('/auth/login', {
       method: 'POST',
-      body: JSON.stringify(data),
+      body: JSON.stringify({
+        ...data,
+        email: data.email.trim().toLowerCase(),
+      }),
     });
     if (res.csrfToken) {
       setCsrfToken(res.csrfToken);

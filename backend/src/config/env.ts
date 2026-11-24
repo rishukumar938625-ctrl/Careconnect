@@ -55,7 +55,7 @@ export function validateEnv(): EnvValidationResult {
   const nodeEnv: 'development' | 'production' | 'test' =
     rawNodeEnv === 'production' ? 'production' : rawNodeEnv === 'test' ? 'test' : 'development';
 
-  const port = Number(process.env.PORT) || 5000;
+  const port = Number(process.env.PORT || process.env.BACKEND_PORT || process.env.VITE_BACKEND_PORT) || 5000;
   const isProd = nodeEnv === 'production';
   const isTest = nodeEnv === 'test';
 
@@ -84,7 +84,10 @@ export function validateEnv(): EnvValidationResult {
   }
 
   // 4. Cookie Configuration
-  let cookieSameSite: 'strict' | 'lax' | 'none' = isProd ? 'strict' : 'lax';
+  // Default to 'lax' in both dev and prod.  Render deployments with separate
+  // frontend/API subdomains should set COOKIE_SAME_SITE=none in the dashboard
+  // (and COOKIE_SECURE=true, which render.yaml already does).
+  let cookieSameSite: 'strict' | 'lax' | 'none' = 'lax';
   if (process.env.COOKIE_SAME_SITE) {
     const rawSameSite = process.env.COOKIE_SAME_SITE.toLowerCase();
     if (['strict', 'lax', 'none'].includes(rawSameSite)) {

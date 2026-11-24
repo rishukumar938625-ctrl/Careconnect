@@ -90,7 +90,7 @@ const UserSchema = new Schema<IUser>(
     passwordHash: {
       type: String,
       required: [true, 'Password hash is required'],
-      select: true,
+      select: false,
     },
     role: {
       type: String,

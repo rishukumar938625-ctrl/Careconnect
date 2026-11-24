@@ -29,7 +29,7 @@ export const Register: React.FC = () => {
       return;
     }
 
-    const trimmedEmail = email.trim();
+    const trimmedEmail = email.trim().toLowerCase();
     if (!trimmedEmail || !EMAIL_REGEX.test(trimmedEmail)) {
       setError('Please enter a valid email address.');
       return;

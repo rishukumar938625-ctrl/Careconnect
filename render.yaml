@@ -47,9 +47,9 @@ services:
       - key: FRONTEND_URL
         sync: false                  # e.g. https://careconnect.onrender.com (your static site URL)
       - key: COOKIE_SAME_SITE
-        value: strict
+        value: none                  # Required: frontend and API are on separate Render subdomains
       - key: COOKIE_SECURE
-        value: "true"
+        value: "true"                # Required: SameSite=none mandates Secure cookies (HTTPS)
 
   # ─── Frontend Static Site ────────────────────────────────────────────────────
   - type: web

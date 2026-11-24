@@ -145,13 +145,23 @@ async function runTests() {
     // ─────────────────────────────────────────────────────────────────────────
     console.log('\nTest 4: Verify password is securely hashed in database');
     {
-      const userInDb = await User.findOne({ email: testEmail.toLowerCase() });
+      // Verify passwordHash is excluded by default (select: false)
+      const userWithoutSelect = await User.findOne({ email: testEmail.toLowerCase() });
+      assert.ok(userWithoutSelect, 'User must exist in database');
+      assert.strictEqual(
+        (userWithoutSelect as any).passwordHash,
+        undefined,
+        'passwordHash must be excluded from default queries by select: false'
+      );
+
+      // Verify explicit .select('+passwordHash') retrieves the hash
+      const userInDb = await User.findOne({ email: testEmail.toLowerCase() }).select('+passwordHash');
       assert.ok(userInDb, 'User must exist in database');
       assert.notEqual(userInDb.passwordHash, testPassword, 'Raw password must never be stored');
       assert.ok(userInDb.passwordHash.startsWith('$2'), 'Must be a bcrypt hash');
       const isMatch = await bcrypt.compare(testPassword, userInDb.passwordHash);
       assert.equal(isMatch, true, 'bcrypt hash must verify candidate password');
-      console.log('  ✓ Verified bcrypt hash in database');
+      console.log('  ✓ Verified bcrypt hash in database and select: false exclusion');
     }
 
     // ─────────────────────────────────────────────────────────────────────────

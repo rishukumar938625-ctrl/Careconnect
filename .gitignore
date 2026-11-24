@@ -19,6 +19,7 @@ backend/dist
 server/node_modules
 server/dist
 *.local
+.backend-port
 
 # Environment variables & secrets
 .env

@@ -6,8 +6,14 @@ import { Login } from '../pages/Login';
 import { Register } from '../pages/Register';
 import { ProtectedRoute } from '../components/auth/ProtectedRoute';
 import { AuthContext, AuthContextType } from '../context/AuthContext';
+import { ApiError } from '../services/api';
 
-vi.mock('../services/api');
+vi.mock('../services/api', async () => {
+  const actual = await vi.importActual<typeof import('../services/api')>('../services/api');
+  return {
+    ...actual,
+  };
+});
 
 const mockAuthContextValue = (overrides?: Partial<AuthContextType>): AuthContextType => ({
   user: null,
@@ -114,6 +120,110 @@ describe('Authentication & Protected Routes', () => {
         email: 'alice@example.com',
         password: 'SecurePass123!',
       });
+    });
+  });
+
+  it('normalizes email with trim and lowercase before calling login', async () => {
+    const user = userEvent.setup();
+    const authContext = mockAuthContextValue({
+      login: vi.fn().mockResolvedValue({
+        id: 'u1',
+        name: 'Alice Patient',
+        email: 'alice@example.com',
+        role: 'patient',
+        isActive: true,
+      }),
+    });
+
+    render(
+      <AuthContext.Provider value={authContext}>
+        <MemoryRouter initialEntries={['/login']}>
+          <Routes>
+            <Route path="/login" element={<Login />} />
+            <Route path="/dashboard" element={<div>Dashboard Home</div>} />
+          </Routes>
+        </MemoryRouter>
+      </AuthContext.Provider>
+    );
+
+    await user.type(screen.getByLabelText(/Email address/i), '   Alice.User@Example.COM   ');
+    await user.type(screen.getByLabelText(/Password/i), 'SecurePass123!');
+    await user.click(screen.getByRole('button', { name: /Sign in/i }));
+
+    await waitFor(() => {
+      expect(authContext.login).toHaveBeenCalledWith({
+        email: 'alice.user@example.com',
+        password: 'SecurePass123!',
+      });
+    });
+  });
+
+  it('displays deactivated account message when login returns 403', async () => {
+    const user = userEvent.setup();
+    const authContext = mockAuthContextValue({
+      login: vi.fn().mockRejectedValue(new ApiError(403, 'Account is deactivated')),
+    });
+
+    render(
+      <AuthContext.Provider value={authContext}>
+        <MemoryRouter initialEntries={['/login']}>
+          <Login />
+        </MemoryRouter>
+      </AuthContext.Provider>
+    );
+
+    await user.type(screen.getByLabelText(/Email address/i), 'inactive@example.com');
+    await user.type(screen.getByLabelText(/Password/i), 'Pass1234!');
+    await user.click(screen.getByRole('button', { name: /Sign in/i }));
+
+    await waitFor(() => {
+      expect(screen.getByRole('alert')).toHaveTextContent(/Account is deactivated/i);
+    });
+  });
+
+  it('displays rate-limit message when login returns 429', async () => {
+    const user = userEvent.setup();
+    const authContext = mockAuthContextValue({
+      login: vi.fn().mockRejectedValue(new ApiError(429, 'Too many requests')),
+    });
+
+    render(
+      <AuthContext.Provider value={authContext}>
+        <MemoryRouter initialEntries={['/login']}>
+          <Login />
+        </MemoryRouter>
+      </AuthContext.Provider>
+    );
+
+    await user.type(screen.getByLabelText(/Email address/i), 'user@example.com');
+    await user.type(screen.getByLabelText(/Password/i), 'Pass1234!');
+    await user.click(screen.getByRole('button', { name: /Sign in/i }));
+
+    await waitFor(() => {
+      expect(screen.getByRole('alert')).toHaveTextContent(/Too many sign-in attempts/i);
+    });
+  });
+
+  it('displays server error message when login returns 500', async () => {
+    const user = userEvent.setup();
+    const authContext = mockAuthContextValue({
+      login: vi.fn().mockRejectedValue(new ApiError(500, 'Internal Server Error')),
+    });
+
+    render(
+      <AuthContext.Provider value={authContext}>
+        <MemoryRouter initialEntries={['/login']}>
+          <Login />
+        </MemoryRouter>
+      </AuthContext.Provider>
+    );
+
+    await user.type(screen.getByLabelText(/Email address/i), 'user@example.com');
+    await user.type(screen.getByLabelText(/Password/i), 'Pass1234!');
+    await user.click(screen.getByRole('button', { name: /Sign in/i }));
+
+    await waitFor(() => {
+      expect(screen.getByRole('alert')).toHaveTextContent(/The server encountered an error/i);
     });
   });
 

@@ -8,7 +8,7 @@ const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 const getCookieOptions = () => {
   const isProd = process.env.NODE_ENV === 'production';
-  const sameSite = (process.env.COOKIE_SAME_SITE?.toLowerCase() || (isProd ? 'strict' : 'lax')) as 'strict' | 'lax' | 'none';
+  const sameSite = (process.env.COOKIE_SAME_SITE?.toLowerCase() || 'lax') as 'strict' | 'lax' | 'none';
   const secure = process.env.COOKIE_SECURE !== undefined
     ? process.env.COOKIE_SECURE === 'true'
     : isProd || sameSite === 'none';
@@ -26,7 +26,7 @@ const getCookieOptions = () => {
 
 const getCsrfCookieOptions = () => {
   const isProd = process.env.NODE_ENV === 'production';
-  const sameSite = (process.env.COOKIE_SAME_SITE?.toLowerCase() || (isProd ? 'strict' : 'lax')) as 'strict' | 'lax' | 'none';
+  const sameSite = (process.env.COOKIE_SAME_SITE?.toLowerCase() || 'lax') as 'strict' | 'lax' | 'none';
   const secure = process.env.COOKIE_SECURE !== undefined
     ? process.env.COOKIE_SECURE === 'true'
     : isProd || sameSite === 'none';
@@ -98,9 +98,17 @@ export const register = async (
 
     const normalizedEmail = email.trim().toLowerCase();
 
+    const isDev = process.env.NODE_ENV !== 'production';
+    if (isDev) {
+      console.log(`[Auth Dev] Registration attempt received for: "${normalizedEmail}"`);
+    }
+
     // Check for existing user with normalized email
     const existingUser = await User.findOne({ email: normalizedEmail });
     if (existingUser) {
+      if (isDev) {
+        console.warn(`[Auth Dev] Registration rejected: Account already exists for "${normalizedEmail}"`);
+      }
       res.status(409).json({
         status: 'error',
         message: 'An account with this email address already exists.',
@@ -132,6 +140,10 @@ export const register = async (
     });
 
     await user.save();
+
+    if (isDev) {
+      console.log(`[Auth Dev] Registration successful: Created user (${user._id}, "${user.email}")`);
+    }
 
     // Generate tokens & set secure cookies
     const token = generateToken({
@@ -185,10 +197,33 @@ export const login = async (
 
     const normalizedEmail = email.trim().toLowerCase();
 
-    // Query user
-    const user = await User.findOne({ email: normalizedEmail });
-    if (!user || !user.passwordHash) {
+    const isDev = process.env.NODE_ENV !== 'production';
+    if (isDev) {
+      console.log(`[Auth Dev] Login request received for email: "${normalizedEmail}" (password length: ${password.length})`);
+    }
+
+    // Query user with explicit passwordHash selection
+    const user = await User.findOne({ email: normalizedEmail }).select('+passwordHash');
+    if (!user) {
+      if (isDev) {
+        console.warn(`[Auth Dev] Normalized email lookup failed: No user account found with email "${normalizedEmail}" -> returning 401`);
+      }
       // Generic error message to prevent account enumeration
+      res.status(401).json({
+        status: 'error',
+        message: 'Invalid email or password.',
+      });
+      return;
+    }
+
+    if (isDev) {
+      console.log(`[Auth Dev] Normalized email lookup succeeded: Found user (id: ${user._id}, email: "${user.email}", isActive: ${user.isActive})`);
+    }
+
+    if (!user.passwordHash) {
+      if (isDev) {
+        console.warn(`[Auth Dev] Password verification failed: User account (${user._id}) has no passwordHash field populated -> returning 401`);
+      }
       res.status(401).json({
         status: 'error',
         message: 'Invalid email or password.',
@@ -198,6 +233,9 @@ export const login = async (
 
     // Check account status
     if (!user.isActive) {
+      if (isDev) {
+        console.warn(`[Auth Dev] Account inactive: User account (${user._id}) is deactivated (isActive=false) -> returning 403`);
+      }
       res.status(403).json({
         status: 'error',
         message: 'This account has been deactivated. Please contact support.',
@@ -207,12 +245,23 @@ export const login = async (
 
     // Verify password hash
     const isMatch = await bcrypt.compare(password, user.passwordHash);
+    if (isDev) {
+      console.log(`[Auth Dev] Password comparison result: bcrypt.compare match=${isMatch}`);
+    }
+
     if (!isMatch) {
+      if (isDev) {
+        console.warn(`[Auth Dev] Password comparison failed: Candidate password does not match stored bcrypt hash for user (${user._id}) -> returning 401`);
+      }
       res.status(401).json({
         status: 'error',
         message: 'Invalid email or password.',
       });
       return;
+    }
+
+    if (isDev) {
+      console.log(`[Auth Dev] Login successful: Authenticated user (${user._id}, "${user.email}") -> returning 200 OK`);
     }
 
     // Generate tokens & set secure cookies

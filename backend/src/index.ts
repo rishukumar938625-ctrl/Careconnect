@@ -3,6 +3,7 @@ import cors from 'cors';
 import helmet from 'helmet';
 import dotenv from 'dotenv';
 import path from 'path';
+import fs from 'fs';
 import { fileURLToPath } from 'url';
 import { connectDB, disconnectDB } from './config/db.js';
 import { errorHandler } from './middleware/errorHandler.js';
@@ -92,24 +93,56 @@ app.use('/api', globalApiLimiter);
 // Configure CORS — use validated config values
 // In production, only the configured FRONTEND_URL is allowed.
 // In development, local origins are permitted for convenience.
+// Vite may auto-select a higher port (5174, 5175, …) if the default is busy,
+// so we allow a small range of common local dev ports.
 const devOrigins = [
   'http://localhost:5173',
+  'http://localhost:5174',
+  'http://localhost:5175',
   'http://127.0.0.1:5173',
+  'http://127.0.0.1:5174',
+  'http://127.0.0.1:5175',
   'http://localhost:3000',
   'http://127.0.0.1:3000',
 ];
-const allowedOrigins: string[] =
+const allowedOrigins: string[] = (
   NODE_ENV === 'production'
     ? [appConfig.frontendUrl]
-    : [appConfig.frontendUrl, ...devOrigins];
+    : [appConfig.frontendUrl, ...devOrigins]
+).filter(Boolean);
+
+/**
+ * Check whether a request origin is allowed.
+ * In development, also accept any localhost/127.0.0.1 origin so that Vite
+ * port-fallback and other local tools work without manual CORS configuration.
+ */
+function isAllowedOrigin(origin: string): boolean {
+  if (allowedOrigins.includes(origin)) return true;
+  // In development, permit any localhost / 127.0.0.1 origin (any port)
+  if (NODE_ENV !== 'production') {
+    try {
+      const url = new URL(origin);
+      if (url.hostname === 'localhost' || url.hostname === '127.0.0.1') {
+        return true;
+      }
+    } catch {
+      // malformed origin — reject
+    }
+  }
+  return false;
+}
 
 app.use(
   cors({
     origin: (origin, callback) => {
       // Allow requests with no origin (e.g. server-to-server, curl, Postman, health probes)
-      if (!origin || allowedOrigins.includes(origin)) {
-        callback(null, true);
+      if (!origin || isAllowedOrigin(origin)) {
+        callback(null, origin || true);
       } else {
+        if (NODE_ENV !== 'production') {
+          console.warn(`[CORS] Rejected origin: ${origin}`);
+          console.warn(`[CORS] Allowed origins: ${allowedOrigins.join(', ')}`);
+        }
         callback(new Error(`Origin ${origin} not allowed by CORS`));
       }
     },
@@ -175,18 +208,38 @@ const startServer = async () => {
     defaultWorker.start();
   }
 
-  const listenOnPort = (portToTry: number, retriesLeft = 1): Promise<import('http').Server> => {
+  const portFilePath = path.resolve(__dirname, '../../.backend-port');
+
+  const cleanPortFile = () => {
+    try {
+      if (fs.existsSync(portFilePath)) {
+        fs.unlinkSync(portFilePath);
+      }
+    } catch {
+      // ignore cleanup errors
+    }
+  };
+
+  const listenOnPort = (portToTry: number, retriesLeft = 10): Promise<import('http').Server> => {
     return new Promise((resolve, reject) => {
       const s = app.listen(portToTry, () => {
         console.log(`🚀 CareConnect API Server running on port ${portToTry} [${NODE_ENV}]`);
         console.log(`📡 Health Check URL:    http://localhost:${portToTry}/api/health`);
         console.log(`🔍 DB Health Check URL: http://localhost:${portToTry}/api/health/db`);
+
+        // Record the actual active port so the Vite dev proxy automatically detects it
+        try {
+          fs.writeFileSync(portFilePath, String(portToTry), 'utf-8');
+        } catch (writeErr) {
+          console.warn('⚠️ [Server] Could not write .backend-port file:', writeErr);
+        }
+
         resolve(s);
       });
 
       s.on('error', (err: NodeJS.ErrnoException) => {
         if (err.code === 'EADDRINUSE' && retriesLeft > 0) {
-          console.warn(`⚠️ [Server] Port ${portToTry} is in use (often used by macOS AirPlay Receiver). Retrying on port ${portToTry + 1}...`);
+          console.warn(`⚠️ [Server] Port ${portToTry} is in use. Retrying on port ${portToTry + 1}...`);
           resolve(listenOnPort(portToTry + 1, retriesLeft - 1));
         } else {
           reject(err);
@@ -200,19 +253,21 @@ const startServer = async () => {
     server = await listenOnPort(PORT);
   } catch (err: any) {
     if (err?.code === 'EADDRINUSE') {
-      console.error(`\n❌ [Server Error] Port ${PORT} (and fallback port ${PORT + 1}) are already in use.`);
+      console.error(`\n❌ [Server Error] Port ${PORT} (and next ports) are already in use.`);
       console.error(`   Another process is currently holding the port.`);
       console.error(`   To free the port, run: lsof -ti :${PORT} | xargs kill -9`);
       console.error(`   Or configure a different port by setting PORT in your .env file.\n`);
     } else {
       console.error('\n❌ [Server Error] Failed to bind server port:', err?.message || err);
     }
+    cleanPortFile();
     process.exit(1);
   }
 
   // Graceful shutdown handling
   const shutdown = async (signal: string) => {
     console.log(`\n🛑 Received ${signal}. Gracefully shutting down...`);
+    cleanPortFile();
     if (process.env.WORKER_ENABLED === 'true') {
       await defaultWorker.stop();
     }
@@ -225,6 +280,7 @@ const startServer = async () => {
 
   process.on('SIGINT', () => shutdown('SIGINT'));
   process.on('SIGTERM', () => shutdown('SIGTERM'));
+  process.on('exit', () => cleanPortFile());
 };
 
 startServer().catch((fatalErr) => {

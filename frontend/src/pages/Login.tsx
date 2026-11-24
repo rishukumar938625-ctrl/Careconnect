@@ -1,9 +1,12 @@
+
+
 import React, { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Mail, Lock, Cross, AlertCircle, ArrowRight } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { Input } from '../components/ui/Input';
 import { Button } from '../components/ui/Button';
+import { ApiError } from '../services/api';
 
 export const Login: React.FC = () => {
   const { login } = useAuth();
@@ -26,7 +29,7 @@ export const Login: React.FC = () => {
     e.preventDefault();
     setError(null);
 
-    const trimmedEmail = email.trim();
+    const trimmedEmail = email.trim().toLowerCase();
     if (!trimmedEmail) {
       setError('Please enter your email address.');
       return;
@@ -42,7 +45,24 @@ export const Login: React.FC = () => {
       await login({ email: trimmedEmail, password });
       navigate(targetDestination, { replace: true });
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Invalid email or password. Please try again.';
+      let message: string;
+      if (err instanceof ApiError) {
+        if (err.status === 401) {
+          message = err.message || 'Invalid email or password.';
+        } else if (err.status === 403) {
+          message = err.message || 'This account has been deactivated. Please contact support.';
+        } else if (err.status === 429) {
+          message = 'Too many sign-in attempts. Please wait a few minutes and try again.';
+        } else if (err.status >= 500) {
+          message = 'The server encountered an error. Please try again in a moment.';
+        } else {
+          message = err.message || 'Invalid email or password. Please try again.';
+        }
+      } else if (err instanceof Error) {
+        message = err.message;
+      } else {
+        message = 'Invalid email or password. Please try again.';
+      }
       setError(message);
     } finally {
       setIsSubmitting(false);
